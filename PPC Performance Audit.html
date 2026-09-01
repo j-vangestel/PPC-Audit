@@ -1,0 +1,2888 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PPC Performance Audit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6f9;color:#1e293b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.4}
+::-webkit-scrollbar{height:6px;width:6px}
+::-webkit-scrollbar-track{background:#e5e9f0}
+::-webkit-scrollbar-thumb{background:#c3cbd9;border-radius:3px}
+.wrap{max-width:100%;padding:20px 24px}
+
+/* Header */
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:16px;flex-wrap:wrap}
+.hdr h1{font-size:19px;font-weight:700;color:#1e293b}
+.hdr .sub{font-size:12px;color:#7c8798;margin-top:3px}
+.period-pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #dbe1ea;border-radius:6px;padding:4px 10px;font-size:11px;color:#7c8798;margin-top:6px;margin-right:6px}
+.period-pill b{color:#1e293b;font-weight:600}
+.btn-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{padding:7px 14px;border-radius:6px;border:1px solid #c3cbd9;background:#fff;color:#1e293b;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.btn-primary{background:#2563eb;border-color:#2563eb;color:#fff;padding:11px 28px;font-size:13px}
+.btn-primary:hover:not(:disabled){background:#1d4ed8;border-color:#1d4ed8}
+.btn-primary:disabled{background:#c3cbd9;border-color:#c3cbd9;color:#8b93a1;cursor:not-allowed}
+.analyze-row{display:flex;justify-content:center;margin-top:18px}
+.btn:hover{border-color:#2563eb;color:#2563eb}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-p{background:#2563eb;border-color:#2563eb;color:#fff}
+.btn-p:hover{background:#1d4ed8}
+
+/* Panels */
+.panel{background:#fff;border:1px solid #dbe1ea;border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.panel h2{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;cursor:pointer;color:#1e293b}
+.panel h2 .car{font-size:11px;color:#7c8798;transition:.15s}
+.panel.collapsed .body{display:none}
+.panel.collapsed h2 .car{transform:rotate(-90deg)}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c8798;margin-bottom:5px}
+.field input,.field select{width:100%;background:#f8f9fb;border:1px solid #dbe1ea;border-radius:6px;padding:7px 10px;color:#1e293b;font-size:12px;outline:none}
+.field input:focus,.field select:focus{border-color:#2563eb}
+
+/* Upload grid */
+.up-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.up-card{border:1px dashed #c3cbd9;border-radius:8px;padding:12px;background:#f8f9fb;transition:.15s}
+.up-card.ok{border-style:solid;border-color:#1e8e3e}
+.up-card.err{border-style:solid;border-color:#dc2626}
+.up-card.drag-over{border-color:#2563eb;background:rgba(37,99,235,.06);border-style:solid}
+.up-card .up-title{font-size:11px;font-weight:700;color:#1e293b;margin-bottom:2px}
+.up-card .up-sub{font-size:10px;color:#7c8798;margin-bottom:8px}
+.up-card .up-drop-hint{font-size:9px;color:#9aa4b5;margin-bottom:4px;font-style:italic}
+.up-card input[type=file]{font-size:10px;color:#7c8798;width:100%}
+.up-status{font-size:10px;margin-top:6px;font-weight:600}
+.up-status.ok{color:#1e8e3e}
+.up-status.err{color:#dc2626}
+.up-status.pending{color:#7c8798}
+.opt-tag{display:inline-block;background:#e8eefb;color:#2255c4;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px;letter-spacing:.04em}
+
+/* KPI section */
+.sec-title{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#7c8798;margin-bottom:8px;margin-top:18px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{background:#fff;border:1px solid #dbe1ea;border-radius:10px;padding:12px 14px}
+.kpi-lbl{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#7c8798;margin-bottom:4px}
+.kpi-val{font-size:18px;font-weight:700;color:#1e293b;margin-bottom:4px}
+.kpi-extra{font-size:11px;color:#7c8798;font-weight:500}
+.yoy-row{margin-top:6px;display:flex;align-items:center;gap:6px}
+.yoy-tag{background:#eef1f5;color:#7c8798;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.03em}
+.yoy-pos{background:#eaf7ee;color:#1e8e3e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+.yoy-neg{background:#fdecea;color:#b3261e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+.kpi.grp-sales{border-top:2px solid #1e8e3e}
+.kpi.grp-ads{border-top:2px solid #2563eb}
+
+/* Colour coding */
+.ok-c{color:#1e8e3e;font-weight:600}
+.warn-c{color:#b8650a;font-weight:600}
+.crit-c{color:#b3261e;font-weight:600}
+.dim-c{color:#7c8798}
+
+/* Tab bar */
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;margin-top:4px}
+.tbtn{padding:7px 15px;border-radius:6px;border:1px solid #dbe1ea;background:#fff;color:#5f6b7d;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.tbtn:hover{border-color:#1e3a5f;color:#1e293b}
+.tbtn.on{background:#1e3a5f;border-color:#1e3a5f;color:#fff}
+.tbtn:disabled{opacity:.35;cursor:not-allowed}
+
+/* Controls */
+.ctrl{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.srch{position:relative;flex:1;min-width:200px;max-width:280px}
+.srch input{width:100%;background:#fff;border:1px solid #dbe1ea;border-radius:6px;padding:7px 10px 7px 28px;color:#1e293b;font-size:12px;outline:none}
+.srch input:focus{border-color:#2563eb}
+select{background:#fff;border:1px solid #dbe1ea;border-radius:6px;padding:7px 10px;color:#1e293b;font-size:12px;outline:none;cursor:pointer}
+.rcnt{font-size:11px;color:#7c8798;margin-left:auto}
+
+/* Table */
+.tbl-outer{overflow-x:auto;border-radius:10px;border:1px solid #dbe1ea;margin-top:2px}
+table{border-collapse:collapse;white-space:nowrap;min-width:100%}
+.sh th{background:#f4f6f9;padding:8px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7c8798;border-bottom:1px solid #dbe1ea;cursor:pointer;user-select:none;position:sticky;top:0;z-index:2;text-align:right}
+.sh th:hover{color:#1e293b}
+.sh th.tl{text-align:left}
+tbody{background:#fff}
+tbody tr{border-bottom:1px solid #eef1f5}
+tbody tr:hover{background:#f8f9fb}
+td{padding:8px;vertical-align:middle;text-align:right}
+td.tl{text-align:left}
+.val{color:#1e293b;font-weight:600;font-size:12px}
+.a-tag{font-family:monospace;font-size:10px;color:#2563eb}
+.pa-tag{font-family:monospace;font-size:10px;color:#7c8798}
+
+/* Status badges */
+.sbadge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.sb-win{background:#eaf7ee;color:#1e8e3e}
+.sb-serp{background:#fef3e2;color:#b8650a}
+.sb-pdp{background:#f3ecfb;color:#7c3aed}
+.sb-waste{background:#fdecea;color:#b3261e}
+.sb-neg{background:#fdecea;color:#c9483f}
+.sb-untapped{background:#e8eefb;color:#2255c4}
+.sb-lowis{background:#e6f5f5;color:#0f766e}
+.sb-ineligible{background:#eef1f5;color:#7c8798}
+.sb-monitor{background:#e6f5f5;color:#0f766e}
+.sb-underbid{background:#f3ecfb;color:#7c3aed}
+
+.empty-tab{padding:40px 20px;text-align:center;color:#7c8798;font-size:12px}
+.locked-tab{padding:40px 20px;text-align:center;color:#7c8798;font-size:12px;border:1px dashed #dbe1ea;border-radius:10px}
+.locked-tab b{color:#1e293b}
+
+/* Filter chips (quick-filter row) */
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:5px 12px;border-radius:6px;border:1px solid #dbe1ea;background:#fff;color:#5f6b7d;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:5px}
+.chip:hover{border-color:#1e3a5f;color:#1e293b}
+.chip.on{background:#1e3a5f;border-color:#1e3a5f;color:#fff}
+.chip .cnt{display:inline-block;background:rgba(255,255,255,.2);border-radius:10px;padding:0 6px;font-size:10px}
+.chip:not(.on) .cnt{background:#eef1f5;color:#5f6b7d}
+.view-toggle{display:flex;gap:0;border:1px solid #dbe1ea;border-radius:6px;overflow:hidden}
+.view-toggle button{padding:6px 12px;border:none;background:#fff;color:#7c8798;font-size:12px;font-weight:600;cursor:pointer}
+.view-toggle button.on{background:#1e3a5f;color:#fff}
+
+/* Sub-table headers within a tab (Campaign Type / Match Type / Placement splits) */
+.subtbl-title{font-size:12px;font-weight:700;color:#1e293b;margin:16px 0 6px}
+tr.total-row td{font-weight:700;background:#f4f6f9;border-top:1px solid #dbe1ea}
+
+/* ASIN campaign drill-down modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-panel{background:#fff;border:1px solid #dbe1ea;border-radius:12px;padding:20px 22px;max-width:min(1500px, 96vw);max-height:90vh;overflow:auto;width:100%;box-shadow:0 12px 40px rgba(15,23,42,.18)}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.modal-hdr-actions{display:flex;align-items:center;gap:10px}
+.btn-sm{padding:5px 10px;font-size:11px}
+.modal-hdr h3{font-size:15px;font-weight:700;color:#1e293b}
+.modal-close{background:none;border:none;color:#7c8798;font-size:20px;cursor:pointer;line-height:1;padding:4px 8px}
+.modal-close:hover{color:#1e293b}
+.modal-note{font-size:11px;color:#7c8798;margin-bottom:14px}
+.warn-banner{font-size:11px;color:#92400e;background:#fef3e2;border:1px solid #f3c98a;border-radius:6px;padding:8px 12px;margin-bottom:12px}
+.a-tag-clickable{cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
+.a-tag-clickable:hover{color:#1d4ed8}
+.pl-campaign-row{cursor:pointer}
+.pl-campaign-row:hover{background:#eef4fd}
+.pl-campaign-row.expanded{background:#e8eefb}
+.expand-caret{display:inline-block;width:12px;color:#7c8798;font-size:10px}
+.pl-expand-row td{background:#f8f9fb;padding:4px 8px 12px 24px}
+
+.dbg{margin-top:10px;font-size:10px;color:#9aa4b5}
+.dbg summary{cursor:pointer;color:#7c8798;font-weight:600}
+.dbg code{background:#f4f6f9;padding:1px 5px;border-radius:3px;color:#7c8798}
+
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff;color:#111}
+  .panel,.kpi,.tbl-outer{border-color:#ccc!important;background:#f7f7f7!important}
+  .kpi-val,.val{color:#111!important}
+}
+/* ═══════════════════════════════════════════════════════════════════
+   LANDING VIEW
+   ═══════════════════════════════════════════════════════════════════ */
+#landing-view{min-height:100vh;background:#f4f6f9}
+.landing-hdr{background:#fff;border-bottom:1px solid #dbe1ea;padding:18px 32px}
+.landing-hdr-inner{max-width:1100px;margin:0 auto}
+.landing-logo{font-size:13px;font-weight:800;letter-spacing:.04em;color:#7c8798;line-height:1.3}
+.landing-logo span{color:#1e293b}
+.landing-byline{font-size:10px;color:#9aa4b5;letter-spacing:.06em;margin-top:2px}
+
+.landing-hero{max-width:720px;margin:0 auto;padding:80px 32px 56px;text-align:center}
+.landing-title{font-size:40px;font-weight:800;color:#1e293b;letter-spacing:-.01em}
+.landing-tagline{font-size:16px;color:#5f6b7d;margin-top:14px}
+.landing-byline-sm{font-size:12px;color:#9aa4b5;margin-top:6px;margin-bottom:36px}
+.landing-privacy{font-size:11px;color:#9aa4b5;margin-top:18px}
+
+.landing-section{max-width:1100px;margin:0 auto;padding:56px 32px}
+.landing-section h2{font-size:22px;font-weight:800;color:#1e293b;text-align:center;margin-bottom:32px}
+.landing-section-alt{background:#fff;border-top:1px solid #dbe1ea;border-bottom:1px solid #dbe1ea}
+
+.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.how-card{background:#f4f6f9;border:1px solid #dbe1ea;border-radius:10px;padding:24px}
+.how-num{width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.how-card h3{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:8px}
+.how-card p{font-size:12px;color:#7c8798;line-height:1.6}
+
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.feature-card{background:#f4f6f9;border:1px solid #dbe1ea;border-radius:10px;padding:20px}
+.feature-card h3{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px}
+.feature-card p{font-size:12px;color:#7c8798;line-height:1.6}
+
+.landing-footer{text-align:center;font-size:11px;color:#9aa4b5;padding:32px}
+
+/* Upload panel, styled larger/roomier when shown on the landing page vs the
+   compact collapsible version used inside the dashboard. */
+#landing-upload-slot #panel-uploads{border:none;background:transparent;padding:0;text-align:left}
+#landing-upload-slot #panel-uploads > h2{justify-content:center;font-size:12px;cursor:default;margin-bottom:18px;color:#1e293b}
+#landing-upload-slot #panel-uploads > h2 .car{display:none}
+#landing-upload-slot .up-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+#landing-upload-slot .up-card{padding:22px;text-align:center;min-height:120px;background:#fff}
+#landing-upload-slot .up-card .up-title{font-size:12px}
+#landing-upload-slot .up-drop-hint{margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     LANDING VIEW — shown until the mandatory reports are uploaded
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="landing-view">
+  <div class="landing-hdr">
+    <div class="landing-hdr-inner">
+      <div class="landing-logo">PPC PERFORMANCE<br><span>AUDIT</span></div>
+      <div class="landing-byline">BY J. VAN GESTEL</div>
+    </div>
+  </div>
+
+  <div class="landing-hero">
+    <h1 class="landing-title">PPC Performance Audit</h1>
+    <div class="landing-tagline">Every campaign, every ASIN, every dollar — in one report.</div>
+    <div id="landing-upload-slot"></div>
+    <div class="landing-privacy">🔒 Your data stays in your browser. Nothing is uploaded to a server.</div>
+  </div>
+
+  <div class="landing-section">
+    <h2>How It Works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">1</div>
+        <h3>Upload Your Reports</h3>
+        <p>Drop in your Bulk Sheet, Campaign Export, Advertised Product Reports, and Business/Vendor Report. Seller Central or Vendor Central, any marketplace — detected automatically.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">2</div>
+        <h3>Set Your Goals</h3>
+        <p>Confirm your account type and marketplace, then set your ACOS and TACOS targets — every table and chart is colour-coded against them from that point on.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">3</div>
+        <h3>Explore &amp; Export</h3>
+        <p>Dig into the full dashboard on screen, or export a client-ready Excel workbook or PDF report in one click.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="landing-section landing-section-alt">
+    <h2>What PPC Performance Audit Does</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Complete Account Overview</h3>
+        <p>KPI summary, Campaign Type, and Match Type breakdowns in one view — ACOS and TACOS tracked against your goals, colour-coded so problems jump out immediately.</p>
+      </div>
+      <div class="feature-card">
+        <h3>ASIN-Level Performance</h3>
+        <p>Every ASIN broken out by Child or Parent Rollup, with Organic Sales %, traffic share, and a one-click campaign drill-down — see exactly which campaigns are driving results for any product.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Keyword &amp; Search Term Health</h3>
+        <p>Every keyword and search term automatically classified — Wasted Spend, High ACOS, Winner, Monitor, Underbidding — so you know where to act first, not just what happened.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Placement Performance</h3>
+        <p>Campaign-level Top of Search, Rest of Search, and Product Pages breakdown, with automatic flags for placements worth scaling and spend that's bleeding out.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Year-over-Year Tracking</h3>
+        <p>Add a MerchantSpring export to see Revenue and Units YoY at the account and ASIN level, with automatic New / Up / Down status per product.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Built-In Data Quality Checks</h3>
+        <p>Cross-source validation catches revenue mismatches between your reports before they end up in a client deliverable, not after.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Runs Entirely in Your Browser</h3>
+        <p>No server, no upload beyond your own machine — your account data never leaves your computer.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="landing-footer">PPC Performance Audit by J. van Gestel · Amazon PPC Account Audit Tool</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     DASHBOARD VIEW — shown once the mandatory reports are uploaded
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="dashboard-view" style="display:none">
+<div class="wrap">
+
+<!-- Header -->
+<div class="hdr">
+  <div>
+    <h1 id="main-title">PPC Performance Audit</h1>
+    <div class="sub" id="main-sub">Upload your reports below to generate the account dashboard</div>
+    <div id="period-pills"></div>
+  </div>
+  <div class="btn-row no-print">
+    <button class="btn" onclick="exportHTML()">⇓ Export HTML</button>
+    <button class="btn" onclick="exportExcel()">⇓ Export Excel</button>
+    <button class="btn" onclick="exportPDF()">⇓ Export PDF</button>
+  </div>
+</div>
+
+<!-- Account Setup -->
+<div class="panel" id="panel-setup">
+  <h2 onclick="togglePanel('panel-setup')"><span class="car">▾</span> Account Setup &amp; Goals</h2>
+  <div class="body">
+    <div class="field-grid">
+      <div class="field">
+        <label>Account Name</label>
+        <input id="s-name" placeholder="e.g. Poderm FR" oninput="onSettingsChange()">
+      </div>
+      <div class="field">
+        <label>Account Type</label>
+        <select id="s-type" onchange="onSettingsChange()">
+          <option value="SC">Seller Central (3P)</option>
+          <option value="VC">Vendor Central (1P)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Marketplace</label>
+        <input id="s-market" placeholder="e.g. FR, DE, US" oninput="onSettingsChange()">
+      </div>
+      <div class="field">
+        <label>Budget Period</label>
+        <select id="s-budgetperiod" onchange="onSettingsChange()">
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Budget Amount</label>
+        <input id="s-budget" type="number" placeholder="e.g. 5000" oninput="onSettingsChange()">
+      </div>
+      <div class="field">
+        <label>ACOS Goal (%)</label>
+        <input id="s-acosgoal" type="number" placeholder="e.g. 20" oninput="onSettingsChange()">
+      </div>
+      <div class="field">
+        <label>TACOS Goal (%)</label>
+        <input id="s-tacosgoal" type="number" placeholder="e.g. 12" oninput="onSettingsChange()">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Uploads panel gets moved here once dashboard view is active -->
+<div id="dashboard-upload-slot"></div>
+
+<!-- Tabs -->
+<div class="tabs" id="tab-nav"></div>
+<div id="tab-content"></div>
+
+</div>
+</div>
+
+<!-- Shared uploads panel — a single element, moved between landing and dashboard
+     slots via JS rather than duplicated, since the file inputs' IDs must stay unique. -->
+<div class="panel" id="panel-uploads">
+  <h2 onclick="togglePanel('panel-uploads')"><span class="car">▾</span> Reports (<span id="up-count">0</span>/4 mandatory uploaded)</h2>
+  <div class="body">
+    <div class="up-grid" id="up-grid"></div>
+    <div class="analyze-row">
+      <button id="analyze-btn" class="btn btn-primary" disabled onclick="analyzeReports()">Analyze Reports</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<script type="application/json" id="data-store">{}</script>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────
+const REPORT_DEFS = [
+  {key:'bulk',      title:'Sponsored Ads Bulk Sheet',        sub:'Full multi-tab Bulk Operations download (all ad types + embedded Search Term Report tabs) — single file, do not split.', required:true},
+  {key:'campExport', title:'Campaign Export',              sub:'Campaigns view → add all NTB columns → filter to NTB Sales with Orders → Export. Keeps the file smaller. Max 300 rows/export — select multiple files to auto-combine. (Includes SP, SB, SD — split by Type column automatically.)', required:true, multi:true},
+  {key:'advSP',     title:'Advertised Product Report — SP',   sub:'ASIN-level ad performance', required:true},
+  {key:'advSD',     title:'Advertised Product Report — SD',   sub:'ASIN-level ad performance', required:false},
+  {key:'placeSP',   title:'Placement Report — SP',            sub:'Top of Search / Rest of Search / Product Pages', required:false},
+  {key:'placeSB',   title:'Placement Report — SB',            sub:'Top of Search / Rest of Search', required:false},
+  {key:'retail',    title:'Business Report (SC) / Vendor Retail Report (VC)', sub:'Revenue, Units, Sessions (SC only)', required:true},
+  {key:'merchantSpring', title:'MerchantSpring Report (YoY)', sub:'"Retail Analytics by Product" export — adds Rev/Units YoY + Status to the ASIN Performance tab', required:false},
+];
+
+const STATE = {
+  settings: {name:'', type:'SC', market:'', currency:'$', currencyDetected:false, budgetPeriod:'weekly', budget:0, acosGoal:20, tacosGoal:12},
+  raw: {},       // key -> array of row objects as parsed
+  headers: {},   // key -> matched column map {field: rawHeaderName}
+  status: {},    // key -> {ok, msg}
+  computed: null,
+  analyzing: false, // true only while the manual Analyze click is being processed
+  activeTab: 'overview',
+  asinView: 'child', asinFilter: null, asinSearch: '', drilldownAsin: null,
+  asinSort: {field:'adSales', dir:'desc'},
+  ovSort: {
+    campaignType: {field:'spend', dir:'desc'},
+    matchType: {field:'spend', dir:'desc'},
+    placement: {field:'spend', dir:'desc'}
+  },
+  kwSort: {field:'spend', dir:'desc'},
+  modalSort: {field:'spend', dir:'desc'},
+  kwFilterStatus: '', kwFilterMatch: '', kwFilterCampaign: '', kwSearch: '',
+  stFilterFlag: '', stFilterCampaign: '', stSearch: '',
+  stSort: {field:'spend', dir:'desc'},
+  plSearch: '', plFilterStatus: '', plExpandedCampaign: null,
+  plSort: {field:'spend', dir:'desc'}
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// COLUMN ALIASES — normalized (lowercase, alphanumeric only) header matching
+// ─────────────────────────────────────────────────────────────────────────
+function norm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+
+const ALIASES = {
+  campaignName: ['campaignname','campaign'],
+  campaignNameInfo: ['campaignnameinformationalonly'],
+  adGroupName: ['adgroupname','adgroup'],
+  entity: ['entity'],
+  product: ['product','adtype','type'], // Sponsored Products / Sponsored Brands / Sponsored Display
+  matchType: ['matchtype'],
+  keywordText: ['keywordtext','keyword','targeting'],
+  productTargetingExpression: ['producttargetingexpression'],
+  placement: ['placement'],
+  impressions: ['impressions'],
+  clicks: ['clicks'],
+  spend: ['spend','cost'],
+  // 'totalsales' / 'totalorders' / 'totalunits' are tried before the bare generic
+  // word, which otherwise risks matching unrelated columns like "Cost of Sales (ACOS)"
+  // or "New-to-brand Orders" depending on column order in a given export.
+  sales: ['totalsales','7daytotalsales','7daysales','sales'],
+  orders: ['totalorders','7daytotalorders','7dayorders','purchases','orders'],
+  units: ['totalunits','7daytotalunits','units'],
+  searchTerm: ['customersearchterm','searchterm'],
+  ntbOrders: ['newtobrandorders','purchasesnewtobrand','ntborders'],
+  ntbSales: ['newtobrandsales','salesnewtobrand','ntbsales'],
+  ntbOrderPct: ['ofordersnewtobrand','ofpurchasesnewtobrand','ntborderpct'],
+  ntbSalesPct: ['ofsalesnewtobrand','ntbsalespct'],
+  advertisedAsin: ['advertisedasin','asin'],
+  advertisedSku: ['advertisedsku','sku'],
+  childAsin: ['childasin','asin'],
+  parentAsin: ['parentasin'],
+  title: ['title','producttitle'],
+  sessions: ['sessionstotal','sessions'],
+  unitSessionPct: ['unitsessionpercentage','unitsessionpct'],
+  // Session Percentage - Total = this ASIN's share of TOTAL account sessions (traffic
+  // share) — a fundamentally different metric from Unit Session Percentage (which is
+  // Amazon's name for conversion rate). Exact-match only, so it doesn't collide with
+  // the "- B2B" variant of the same column.
+  sessionPct: ['sessionpercentagetotal'],
+  orderedProductSales: ['orderedproductsales','revenue','orderedrevenue'],
+  unitsOrdered: ['unitsordered','orderedunits'],
+  // MerchantSpring "Retail Analytics by Product" export — raw headers are literal
+  // camelCase (confirmed via the amazon-retail-dashboard skill's own parser), and all
+  // resolve via exact match, so there's no ambiguity between e.g. 'orderedRevenue' and
+  // 'priorOrderedRevenue' despite one being a substring of the other.
+  // Seller Central MerchantSpring exports have no literal 'asin' column — the ASIN is
+  // under 'productSku' instead, with a separate (usually empty) 'sku' field for internal
+  // SKU. Vendor Central exports may use a literal 'asin' column, so try that first.
+  msAsin: ['asin','productsku'],
+  msOrderedRevenue: ['orderedrevenue'],
+  msPriorOrderedRevenue: ['priororderedrevenue'],
+  msOrderedUnits: ['orderedunits'],
+  msPriorOrderedUnits: ['priororderedunits'],
+};
+
+// Bare single-word aliases are only safe to match via exact equality (Pass 1) — as a
+// loose substring fallback they're too promiscuous, e.g. 'sales' would match inside
+// "Ordered Product Sales" or "Cost of Sales (ACOS)", which have nothing to do with ad
+// sales. Their more specific compound siblings ('totalsales', 'orderedproductsales',
+// etc.) already cover the legitimate substring-matching cases.
+const GENERIC_FALLBACK_EXCLUDE = new Set(['sales','product','orders','units']);
+
+function buildColumnMap(headerRow){
+  const normHeaders = headerRow.map(h => ({raw:h, n:norm(h)}));
+  const map = {};
+  for (const field in ALIASES){
+    const aliases = ALIASES[field];
+    let found = null;
+    // Pass 1: exact match only (avoids e.g. 'type' alias matching 'Match Type')
+    for (const a of aliases){
+      const hits = normHeaders.filter(h => h.n === a);
+      if (hits.length){ found = (hits.find(h => h.n.indexOf('converted') === -1) || hits[0]).raw; break; }
+    }
+    // Pass 2: substring match, only if no exact match was found anywhere.
+    // Prefer a non-"(converted)" header when both a converted and local-currency
+    // version of the same metric exist (Amazon multi-currency exports).
+    if (!found){
+      for (const a of aliases){
+        if (GENERIC_FALLBACK_EXCLUDE.has(a)) continue;
+        const hits = normHeaders.filter(h => h.n.indexOf(a) !== -1);
+        if (hits.length){ found = (hits.find(h => h.n.indexOf('converted') === -1) || hits[0]).raw; break; }
+      }
+    }
+    if (found) map[field] = found;
+  }
+  return map;
+}
+
+function num(v){
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+const CURRENCY_SYMBOLS = ['€','£','¥','₹','$'];
+function detectCurrencyFromRows(rows, map){
+  if (STATE.settings.currencyDetected) return;
+  const candidateFields = ['spend','sales'];
+  for (const row of rows.slice(0, 20)){
+    for (const field of candidateFields){
+      const col = map[field];
+      if (!col) continue;
+      const raw = String(row[col] || '');
+      const found = CURRENCY_SYMBOLS.find(sym => raw.indexOf(sym) !== -1);
+      if (found){ STATE.settings.currency = found; STATE.settings.currencyDetected = true; return; }
+    }
+  }
+}
+function pct(a,b){ return b ? (a/b*100) : 0; }
+
+// Re-rendering a multi-thousand-row table on every keystroke is what was causing the
+// "hang" feeling when switching tabs/typing in search boxes. Debounce lets typing
+// settle before the (expensive) re-render runs.
+function debounce(fn, wait){
+  let t;
+  return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+}
+
+// Caps how many rows get built into the DOM at once for very large tables (some
+// accounts have 10,000+ keyword rows) — rows are already sorted by relevance first,
+// so this keeps the most important rows visible while keeping renders fast.
+const ROW_CAP = 300;
+function capRows(rows){
+  return {shown: rows.slice(0, ROW_CAP), total: rows.length, truncated: rows.length > ROW_CAP};
+}
+
+function sortRows(rows, sortState){
+  const {field, dir} = sortState;
+  const mul = dir === 'asc' ? 1 : -1;
+  return rows.slice().sort((a,b) => {
+    const av = a[field], bv = b[field];
+    // localeCompare does locale-aware Unicode collation and is noticeably slower
+    // than a plain comparison at scale (tens of thousands of rows) — a simple
+    // less-than/greater-than check is sufficient for sorting campaign/keyword text.
+    if (typeof av === 'string' || typeof bv === 'string'){
+      const as = av || '', bs = bv || '';
+      return as < bs ? -mul : as > bs ? mul : 0;
+    }
+    return ((av||0) - (bv||0)) * mul;
+  });
+}
+function toggleSort(sortState, field, defaultDir){
+  if (sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  else { sortState.field = field; sortState.dir = defaultDir || 'desc'; }
+}
+function sortArrow(sortState, field){ return sortState.field === field ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : ''; }
+
+function fmt$(v){ return STATE.settings.currency + Math.round(v).toLocaleString('en-US'); }
+// Whole-number rounding is fine for big totals (Spend, Sales, Revenue) but silently
+// zeroes out small per-unit metrics like CPC (e.g. €0.47 rounds to €0) — those need
+// 2 decimal places to be meaningful.
+function fmt$dec(v){ return STATE.settings.currency + v.toFixed(2); }
+function fmtPct(v){ return v.toFixed(2) + '%'; }
+function fmtNum(v){ return Math.round(v).toLocaleString('en-US'); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// FILE PARSING (SheetJS handles both CSV and XLSX)
+// ─────────────────────────────────────────────────────────────────────────
+// Some exports (notably Vendor Central retail CSVs) prepend a metadata line like
+// "Programme=[Retail], Distributor View=[Manufacturing], ..." before the real header
+// row. Reading row 1 as the header in that case silently misparses the whole file.
+// We scan the first several rows and treat the first one that doesn't look like a
+// "key=[value]" metadata line as the true header.
+function findHeaderRowIndex(aoa){
+  for (let i = 0; i < Math.min(aoa.length, 10); i++){
+    const row = aoa[i];
+    if (!row || !row.length) continue;
+    const metaLike = row.filter(c => typeof c === 'string' && /=/.test(c)).length;
+    if (metaLike / row.length < 0.5) return i;
+  }
+  return 0;
+}
+
+function aoaToObjects(aoa, headerIdx){
+  const header = aoa[headerIdx].map(h => String(h));
+  return aoa.slice(headerIdx + 1)
+    .filter(row => row && row.length)
+    .map(row => {
+      const obj = {};
+      header.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
+      return obj;
+    });
+}
+
+// SheetJS's CSV reader has to GUESS each cell's type from plain text, since CSV has no
+// native cell typing the way XLSX does. That guessing is not reliable: on real account
+// data, the value "€ 77.10" was misidentified as a date and silently rewritten to
+// "10/1/77", which then parsed as the number 10177 — a 130x inflation of that row's
+// revenue with no error or warning. A hand-written CSV parser that treats every field
+// as plain text sidesteps this entirely; our own num()/findHeaderRowIndex logic already
+// handles currency symbols and stray characters safely on top of that plain text.
+// Only used for .csv — genuine binary XLSX files have explicitly typed cells and don't
+// have this ambiguity, so SheetJS remains in use for those.
+function parseCsvText(text){
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip UTF-8 BOM
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if (inQuotes){
+      if (ch === '"'){
+        if (text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+      } else field += ch;
+    } else if (ch === '"'){ inQuotes = true; }
+    else if (ch === ','){ row.push(field); field = ''; }
+    else if (ch === '\r'){ /* skip, \n handles the line break */ }
+    else if (ch === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+    else field += ch;
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function parseFile(file){
+  return new Promise((resolve, reject) => {
+    // CSV is a text format — reading it as raw binary bytes (ArrayBuffer) and letting
+    // XLSX guess the encoding was corrupting currency symbols and accented characters
+    // (€ became "â\x82¬" etc). Reading as UTF-8 text respects the browser's proper
+    // decoding. XLSX/XLS are real binary zip-based formats and still need ArrayBuffer.
+    const isCsv = /\.csv$/i.test(file.name || '');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try{
+        let aoa;
+        if (isCsv){
+          aoa = parseCsvText(e.target.result);
+        } else {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+          aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:'', raw:false});
+        }
+        const headerIdx = findHeaderRowIndex(aoa);
+        resolve(aoaToObjects(aoa, headerIdx));
+      } catch(err){ reject(err); }
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    if (isCsv) reader.readAsText(file, 'UTF-8');
+    else reader.readAsArrayBuffer(file);
+  });
+}
+
+// Amazon's real "Bulk Operations" download is a multi-sheet workbook: one tab per
+// ad type (Sponsored Products/Brands/Display Campaigns) plus embedded Search Term
+// Report tabs. Each Campaigns tab mixes multiple Entity row-types (Campaign, Ad group,
+// Keyword, Product targeting, Product ad, Bidding adjustment, Negative keyword...) and
+// several of these carry their OWN copy of the same underlying performance numbers at
+// different rollup granularities. Summing all rows blindly double- (or triple-) counts
+// impressions/spend. We therefore keep Entity='Campaign' rows (one clean total per
+// campaign, no overlap) separate from Entity='Keyword'/'Product targeting' rows (the
+// keyword/target-level breakdown), and never mix the two in the same total.
+function parseBulkWorkbook(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const campaignRows = [], keywordRows = [], searchTermRows = [];
+        let campaignMap = null, searchTermMap = null;
+        wb.SheetNames.forEach(name => {
+          const lname = name.toLowerCase();
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:'', raw:false});
+          if (!rows.length) return;
+          if (lname.indexOf('search term report') !== -1){
+            if (!searchTermMap) searchTermMap = buildColumnMap(Object.keys(rows[0]));
+            rows.forEach(r => searchTermRows.push(r));
+          } else if (lname.indexOf('campaign') !== -1){
+            const map = buildColumnMap(Object.keys(rows[0]));
+            if (!campaignMap) campaignMap = map;
+            const entityCol = map.entity;
+            rows.forEach(r => {
+              const entity = entityCol ? String(r[entityCol]||'').toLowerCase().trim() : '';
+              if (entity === 'campaign') campaignRows.push(r);
+              else if (entity === 'keyword' || entity === 'product targeting') keywordRows.push(r);
+            });
+          }
+        });
+        resolve({campaignRows, keywordRows, searchTermRows, campaignMap: campaignMap||{}, searchTermMap: searchTermMap||{}});
+      } catch(err){ reject(err); }
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function onFileSelected(key, input){
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const card = document.getElementById('up-card-' + key);
+  const statusEl = document.getElementById('up-status-' + key);
+  statusEl.textContent = 'Parsing…'; statusEl.className = 'up-status pending';
+  try{
+    if (key === 'bulk'){
+      // Bulk sheet is a special multi-sheet workbook — only one file supported.
+      const result = await parseBulkWorkbook(files[0]);
+      if (!result.campaignRows.length && !result.keywordRows.length) throw new Error('No recognizable Campaign/Keyword rows found across sheets');
+      STATE.raw.bulk = result;
+      STATE.headers.bulk = result.campaignMap;
+      detectCurrencyFromRows(result.campaignRows, result.campaignMap);
+      STATE.status[key] = {ok:true, msg: result.campaignRows.length + ' campaign rows · ' + result.keywordRows.length + ' keyword/target rows · ' + result.searchTermRows.length + ' search term rows'};
+      card.className = 'up-card ok';
+      statusEl.textContent = '✓ ' + STATE.status[key].msg;
+      statusEl.className = 'up-status ok';
+      updateUploadCount();
+      tryCompute();
+      return;
+    }
+    let allRows = [];
+    let headerRow = null;
+    for (const file of files){
+      const rows = await parseFile(file);
+      if (!rows.length) continue;
+      if (!headerRow) headerRow = Object.keys(rows[0]);
+      allRows = allRows.concat(rows);
+    }
+    if (!allRows.length){
+      const def = REPORT_DEFS.find(r => r.key === key);
+      if (def && !def.required){
+        // An optional report with zero data rows usually just means the account had
+        // no activity for that ad type in this period — not a broken file. Showing
+        // this as a scary parsing error would be misleading.
+        STATE.raw[key] = [];
+        STATE.headers[key] = {};
+        STATE.status[key] = {ok:true, msg:'0 rows — likely no activity for this ad type in this period'};
+        card.className = 'up-card ok';
+        statusEl.textContent = 'ℹ ' + STATE.status[key].msg;
+        statusEl.className = 'up-status pending';
+        updateUploadCount();
+        tryCompute();
+        return;
+      }
+      throw new Error('File(s) appear empty');
+    }
+    const map = buildColumnMap(headerRow);
+    STATE.raw[key] = allRows;
+    STATE.headers[key] = map;
+    detectCurrencyFromRows(allRows, map);
+    const fileNote = files.length > 1 ? files.length + ' files combined · ' : '';
+    STATE.status[key] = {ok:true, msg: fileNote + allRows.length + ' rows · ' + Object.keys(map).length + ' fields matched'};
+    card.className = 'up-card ok';
+    statusEl.textContent = '✓ ' + STATE.status[key].msg;
+    statusEl.className = 'up-status ok';
+  } catch(err){
+    STATE.status[key] = {ok:false, msg: err.message};
+    card.className = 'up-card err';
+    statusEl.textContent = '⚠ ' + err.message;
+    statusEl.className = 'up-status err';
+  }
+  updateUploadCount();
+  tryCompute();
+}
+
+function updateUploadCount(){
+  const mandatory = REPORT_DEFS.filter(r => r.required);
+  const done = mandatory.filter(r => STATE.status[r.key] && STATE.status[r.key].ok).length;
+  document.getElementById('up-count').textContent = done;
+}
+
+function togglePanel(id){ document.getElementById(id).classList.toggle('collapsed'); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────────────────────────────────
+function onSettingsChange(){
+  STATE.settings.name = document.getElementById('s-name').value;
+  STATE.settings.type = document.getElementById('s-type').value;
+  STATE.settings.market = document.getElementById('s-market').value;
+  STATE.settings.budgetPeriod = document.getElementById('s-budgetperiod').value;
+  STATE.settings.budget = num(document.getElementById('s-budget').value);
+  STATE.settings.acosGoal = num(document.getElementById('s-acosgoal').value) || 20;
+  STATE.settings.tacosGoal = num(document.getElementById('s-tacosgoal').value) || 12;
+  updateHeader();
+  if (STATE.computed) render();
+}
+
+function updateHeader(){
+  const s = STATE.settings;
+  const title = (s.name || 'PPC Audit Tool') + (s.market ? ' · Amazon ' + s.market : '') + ' · ' + (s.type === 'VC' ? 'Vendor Central' : 'Seller Central');
+  document.getElementById('main-title').textContent = title;
+  document.title = title;
+  const pills = document.getElementById('period-pills');
+  pills.innerHTML =
+    (s.currencyDetected ? '<span class="period-pill">Currency: <b>' + s.currency + ' (auto-detected)</b></span>' : '') +
+    '<span class="period-pill">Budget: <b>' + fmt$(s.budget) + ' / ' + s.budgetPeriod + '</b></span>' +
+    '<span class="period-pill">ACOS Goal: <b>' + s.acosGoal + '%</b></span>' +
+    '<span class="period-pill">TACOS Goal: <b>' + s.tacosGoal + '%</b></span>';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// COMPUTE
+// ─────────────────────────────────────────────────────────────────────────
+// Toggles between the landing page and the dashboard, and physically moves the
+// (single, shared) upload panel between the two — it's one element with unique
+// input IDs, not duplicated, so moving it avoids any ID-collision risk.
+function updateViewMode(){
+  // Deliberately does NOT switch to the dashboard just because the mandatory files are
+  // present — that used to auto-trigger analysis the instant the last file finished
+  // parsing, which is exactly the "processes automatically" behavior that wasn't
+  // wanted. Only actually analyzing (button clicked) or already having results
+  // switches the view.
+  const isReady = STATE.analyzing || !!STATE.computed;
+  const landingView = document.getElementById('landing-view');
+  const dashboardView = document.getElementById('dashboard-view');
+  const panelUploads = document.getElementById('panel-uploads');
+  const landingSlot = document.getElementById('landing-upload-slot');
+  const dashboardSlot = document.getElementById('dashboard-upload-slot');
+
+  if (isReady){
+    landingView.style.display = 'none';
+    dashboardView.style.display = '';
+    if (panelUploads.parentElement !== dashboardSlot) dashboardSlot.appendChild(panelUploads);
+  } else {
+    dashboardView.style.display = 'none';
+    landingView.style.display = '';
+    panelUploads.classList.remove('collapsed'); // always expanded on the landing page
+    if (panelUploads.parentElement !== landingSlot) landingSlot.appendChild(panelUploads);
+  }
+}
+
+function updateAnalyzeButtonState(){
+  const btn = document.getElementById('analyze-btn');
+  if (!btn) return;
+  const mandatory = REPORT_DEFS.filter(r => r.required);
+  const allMandatoryPresent = mandatory.every(r => STATE.raw[r.key]);
+  btn.disabled = !allMandatoryPresent;
+  btn.textContent = STATE.computed ? 'Refresh Analysis' : 'Analyze Reports';
+}
+
+// Called after every file upload/parse. Only updates status and the Analyze button's
+// enabled state — never computes anything on its own. computeAll() only ever runs
+// from analyzeReports(), below, so the person controls exactly when processing starts.
+function tryCompute(){
+  updateAnalyzeButtonState();
+  updateViewMode();
+  render();
+}
+
+// The Analyze / Refresh Analysis button's click handler — the sole trigger for
+// actually running computeAll(), whether this is the first analysis or a refresh
+// after uploading updated files.
+function analyzeReports(){
+  const mandatory = REPORT_DEFS.filter(r => r.required);
+  const allMandatoryPresent = mandatory.every(r => STATE.raw[r.key]);
+  if (!allMandatoryPresent) return; // button should already be disabled in this case
+  STATE.analyzing = true;
+  updateViewMode();
+  const content = document.getElementById('tab-content');
+  content.innerHTML = `<div class="locked-tab">⏳ Building your dashboard — this can take a few seconds for larger accounts…</div>`;
+  // Deferring the heavy synchronous work by a tick lets the browser actually paint the
+  // message above first; without this, a large account's compute would block the main
+  // thread immediately and the "Building…" text would never visibly appear.
+  setTimeout(() => { computeAll(); STATE.analyzing = false; updateAnalyzeButtonState(); updateViewMode(); render(); }, 30);
+}
+
+// Auto campaigns' 4 default clauses (close-match, loose-match, substitutes, complements)
+// and category-based targeting both come through as Entity='Product targeting' rows in
+// the bulk sheet, but they aren't the same thing as a manually chosen product target —
+// bucket them into their own match-type labels rather than lumping everything together.
+function classifyTargetType(expr){
+  const e = norm(expr);
+  if (['closematch','loosematch','substitutes','complements'].indexOf(e) !== -1) return 'Auto';
+  if (e.indexOf('category') === 0) return 'Category Targeting';
+  return 'Product Targeting';
+}
+
+function getField(row, map, field){
+  const col = map[field];
+  return col ? row[col] : undefined;
+}
+
+function computeAll(){
+  const c = {};
+  c.overview = computeOverview();
+  c.campaignType = computeCampaignType(c.overview);
+  c.matchTypeSP = computeMatchType(c.overview, 'Sponsored Products');
+  c.matchTypeSB = computeMatchType(c.overview, 'Sponsored Brands');
+  c.placement = computePlacement();
+  c.campaignPlacement = computeCampaignPlacement(c.overview);
+  c.campaignPlacementSummary = computeCampaignPlacementSummary(c.campaignPlacement, c.overview);
+  c.asin = computeAsin();
+  c.keywordHealth = computeKeywordHealth(c.overview);
+  c.searchTermHealth = computeSearchTermHealth(c.overview);
+  // These flags — not a live STATE.raw check — are what render functions should gate on.
+  // STATE.raw only exists during the session files were actually uploaded in; it's never
+  // saved in an HTML export. These flags live inside `computed`, which IS saved and
+  // restored, so "was this optional report available" still reads correctly even after
+  // the file is closed and reopened later with no re-upload.
+  c.hasPlacementSP = !!STATE.raw.placeSP;
+  c.hasPlacementSB = !!STATE.raw.placeSB;
+  c.hasAdvSD = !!STATE.raw.advSD;
+  c.hasMerchantSpring = !!STATE.raw.merchantSpring;
+  c.msOverview = computeMerchantSpringOverview();
+  STATE.computed = c;
+}
+
+function sumField(rows, map, field){
+  return rows.reduce((s,r) => s + num(getField(r, map, field)), 0);
+}
+
+function computeOverview(){
+  const bulkData = STATE.raw.bulk || {campaignRows:[], keywordRows:[], searchTermRows:[]};
+  const bm = STATE.headers.bulk || {};
+  const rm = STATE.headers.retail || {};
+  const retail = STATE.raw.retail || [];
+
+  // Use Campaign-entity rows only: one clean row per campaign, no double-counting
+  // risk from the other entity types that share the same underlying spend.
+  const impressions = sumField(bulkData.campaignRows, bm, 'impressions');
+  const clicks = sumField(bulkData.campaignRows, bm, 'clicks');
+  const spend = sumField(bulkData.campaignRows, bm, 'spend');
+  const adSales = sumField(bulkData.campaignRows, bm, 'sales');
+  const adOrders = sumField(bulkData.campaignRows, bm, 'orders');
+
+  const campRows = STATE.raw.campExport || [];
+  const cm = STATE.headers.campExport || {};
+  // Real Amazon Type codes are short (SP / SB2 / SD), not literal "Sponsored Brands"
+  // text — match by prefix rather than requiring the full ad-type name.
+  const byTypePrefix = (prefix) => campRows.filter(r => norm(getField(r,cm,'product')).indexOf(prefix) === 0);
+  const sbRows = byTypePrefix('sb');
+  const sdRows = byTypePrefix('sd');
+  const sbNtbSales = sumField(sbRows, cm, 'ntbSales');
+  const sbSales = sumField(sbRows, cm, 'sales');
+  const sdNtbSales = sumField(sdRows, cm, 'ntbSales');
+  const sdSales = sumField(sdRows, cm, 'sales');
+
+  const revenue = STATE.settings.type === 'VC'
+    ? sumField(retail, rm, 'orderedProductSales')
+    : sumField(retail, rm, 'orderedProductSales');
+  const unitsOrdered = sumField(retail, rm, 'unitsOrdered');
+  const sessions = STATE.settings.type === 'VC' ? null : sumField(retail, rm, 'sessions');
+
+  const acos = pct(spend, adSales);
+  const tacos = pct(spend, revenue || adSales);
+  const roas = spend ? adSales/spend : 0;
+  const troas = spend ? revenue/spend : 0;
+  const organicSales = Math.max(revenue - adSales, 0);
+
+  return {
+    revenue, unitsOrdered, sessions,
+    unitSessionPct: sessions !== null ? pct(unitsOrdered, sessions) : null,
+    adSales, spend, impressions, clicks,
+    cpc: clicks ? spend/clicks : 0,
+    cvr: pct(adOrders, clicks),
+    adOrders,
+    cpa: adOrders ? spend/adOrders : 0,
+    cac: adOrders ? spend/adOrders : 0,
+    ctr: pct(clicks, impressions),
+    sbNtbPct: sbSales ? pct(sbNtbSales, sbSales) : null,
+    sdNtbPct: sdSales ? pct(sdNtbSales, sdSales) : null,
+    acos, tacos, roas, troas,
+    organicSales,
+    organicSalesPct: revenue ? pct(organicSales, revenue) : 0,
+    adSalesPct: revenue ? pct(adSales, revenue) : 0
+  };
+}
+
+function withRatePctFields(g, overview){
+  return {...g,
+    cpc: g.clicks ? g.spend/g.clicks : 0,
+    acos: pct(g.spend,g.sales), ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks),
+    pctAdSpend: overview.spend ? pct(g.spend, overview.spend) : 0,
+    pctAdSales: overview.adSales ? pct(g.sales, overview.adSales) : 0,
+    pctTotalSales: overview.revenue ? pct(g.sales, overview.revenue) : 0
+  };
+}
+
+function computeCampaignType(overview){
+  const bulkData = STATE.raw.bulk || {campaignRows:[]};
+  const bm = STATE.headers.bulk || {};
+  const groups = {};
+  bulkData.campaignRows.forEach(r => {
+    const product = bm.product ? (r[bm.product] || 'Sponsored Products') : 'Sponsored Products';
+    if (!groups[product]) groups[product] = {product, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+    groups[product].impressions += num(getField(r,bm,'impressions'));
+    groups[product].clicks += num(getField(r,bm,'clicks'));
+    groups[product].spend += num(getField(r,bm,'spend'));
+    groups[product].sales += num(getField(r,bm,'sales'));
+    groups[product].orders += num(getField(r,bm,'orders'));
+  });
+  const campRows = STATE.raw.campExport || [];
+  const cm = STATE.headers.campExport || {};
+  const byTypePrefix = (prefix) => campRows.filter(r => norm(getField(r,cm,'product')).indexOf(prefix) === 0);
+  Object.keys(groups).forEach(product => {
+    const p = norm(product);
+    const prefix = p.indexOf('brand') !== -1 ? 'sb' : (p.indexOf('display') !== -1 ? 'sd' : 'sp');
+    const rows = byTypePrefix(prefix);
+    groups[product].ntbOrders = sumField(rows, cm, 'ntbOrders');
+    groups[product].ntbSales = sumField(rows, cm, 'ntbSales');
+  });
+  const rows = Object.values(groups).map(g => withRatePctFields(g, overview));
+  const total = withRatePctFields(rows.reduce((t,r) => ({impressions:t.impressions+r.impressions, clicks:t.clicks+r.clicks, spend:t.spend+r.spend, sales:t.sales+r.sales, orders:t.orders+r.orders, ntbOrders:t.ntbOrders+r.ntbOrders, ntbSales:t.ntbSales+r.ntbSales}), {impressions:0,clicks:0,spend:0,sales:0,orders:0,ntbOrders:0,ntbSales:0}), overview);
+  total.product = 'Total'; total.isTotal = true;
+  return {rows, total};
+}
+
+// Match-type breakdown for ONE ad type at a time (e.g. "Sponsored Products" or
+// "Sponsored Brands") — percentages are relative to the WHOLE ACCOUNT (overview),
+// matching how the reference report shows them, not just this ad type's subtotal.
+function computeMatchType(overview, productLabel){
+  const bulkData = STATE.raw.bulk || {keywordRows:[]};
+  const bm = STATE.headers.bulk || {};
+  const groups = {};
+  bulkData.keywordRows.forEach(r => {
+    const product = bm.product ? r[bm.product] : '';
+    if (norm(product) !== norm(productLabel)) return;
+    const entity = bm.entity ? String(r[bm.entity]||'').toLowerCase().trim() : '';
+    let match;
+    if (entity === 'product targeting'){
+      const expr = bm.productTargetingExpression ? r[bm.productTargetingExpression] : '';
+      match = classifyTargetType(expr);
+    } else {
+      match = bm.matchType ? (r[bm.matchType] || 'n/a') : 'n/a';
+    }
+    if (!groups[match]) groups[match] = {matchType: match, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+    groups[match].impressions += num(getField(r,bm,'impressions'));
+    groups[match].clicks += num(getField(r,bm,'clicks'));
+    groups[match].spend += num(getField(r,bm,'spend'));
+    groups[match].sales += num(getField(r,bm,'sales'));
+    groups[match].orders += num(getField(r,bm,'orders'));
+  });
+  const rows = Object.values(groups).map(g => withRatePctFields(g, overview));
+  const total = withRatePctFields(rows.reduce((t,r) => ({impressions:t.impressions+r.impressions, clicks:t.clicks+r.clicks, spend:t.spend+r.spend, sales:t.sales+r.sales, orders:t.orders+r.orders}), {impressions:0,clicks:0,spend:0,sales:0,orders:0}), overview);
+  total.matchType = 'Total'; total.isTotal = true;
+  return {rows, total};
+}
+
+function computePlacement(){
+  const out = [];
+  [['placeSP','SP'], ['placeSB','SB']].forEach(([key, label]) => {
+    const map = STATE.headers[key] || {};
+    const rows = STATE.raw[key] || [];
+    const groups = {};
+    rows.forEach(r => {
+      const placement = map.placement ? (r[map.placement] || 'n/a') : 'n/a';
+      const k = placement;
+      if (!groups[k]) groups[k] = {adType:label, placement, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+      groups[k].impressions += num(getField(r,map,'impressions'));
+      groups[k].clicks += num(getField(r,map,'clicks'));
+      groups[k].spend += num(getField(r,map,'spend'));
+      groups[k].sales += num(getField(r,map,'sales'));
+      groups[k].orders += num(getField(r,map,'orders'));
+    });
+    Object.values(groups).forEach(g => out.push({...g, acos: pct(g.spend,g.sales), ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks)}));
+  });
+  return out;
+}
+
+// Normalizes Amazon's placement text ("Top of Search on Amazon", "Rest of search on
+// Amazon", "Product pages on Amazon"...) into a stable category for flag logic.
+function placementCategory(placement){
+  const p = norm(placement);
+  if (p.indexOf('topofsearch') !== -1) return 'tos';
+  if (p.indexOf('restofsearch') !== -1) return 'ros';
+  if (p.indexOf('productpages') !== -1) return 'productpages';
+  return 'other';
+}
+
+function classifyPlacementFlag(category, orders, acos, spend, clicks, asp, goal){
+  if (category === 'productpages'){
+    // Bleeding: spend with no orders at this placement — same wasted-spend logic used
+    // elsewhere, applied specifically to Product Pages since that's the placement most
+    // prone to burning spend on browse traffic that doesn't convert.
+    if (orders === 0 && (spend > asp || clicks >= 15)) return {flag:'Bleeding', flagClass:'sb-waste'};
+    if (orders > 0 && acos > goal * 1.5) return {flag:'High ACOS', flagClass:'sb-serp'};
+    return {flag:'', flagClass:''};
+  }
+  if (category === 'tos' || category === 'ros'){
+    // Scale Opportunity only applies to Top/Rest of Search — converting well within
+    // goal with a real sample size means there's room to raise the placement bid
+    // multiplier and capture more volume here specifically.
+    if (orders >= 3 && acos <= goal) return {flag:'Scale Opportunity', flagClass:'sb-win'};
+    if (orders > 0 && acos > goal * 1.5) return {flag:'High ACOS', flagClass:'sb-serp'};
+    return {flag:'', flagClass:''};
+  }
+  if (orders > 0 && acos > goal * 1.5) return {flag:'High ACOS', flagClass:'sb-serp'};
+  return {flag:'', flagClass:''};
+}
+
+// Placement performance broken out per campaign (not just aggregated by placement
+// type across the whole account) — this is what lets you see which specific campaign
+// is bleeding spend at a given placement, rather than only the account-wide picture.
+function computeCampaignPlacement(overview){
+  const asp = overview.adOrders > 0 ? overview.adSales / overview.adOrders
+    : (overview.unitsOrdered > 0 ? overview.revenue / overview.unitsOrdered : Infinity);
+  const goal = STATE.settings.acosGoal;
+  const out = [];
+  [['placeSP','SP'], ['placeSB','SB']].forEach(([key, label]) => {
+    const map = STATE.headers[key] || {};
+    const rows = STATE.raw[key] || [];
+    const groups = {};
+    rows.forEach(r => {
+      const campaign = (map.campaignName && r[map.campaignName]) || (map.campaignNameInfo && r[map.campaignNameInfo]) || '(unknown campaign)';
+      const placement = map.placement ? (r[map.placement] || 'n/a') : 'n/a';
+      const k = campaign + '|' + placement;
+      if (!groups[k]) groups[k] = {adType:label, campaign, placement, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+      groups[k].impressions += num(getField(r,map,'impressions'));
+      groups[k].clicks += num(getField(r,map,'clicks'));
+      groups[k].spend += num(getField(r,map,'spend'));
+      groups[k].sales += num(getField(r,map,'sales'));
+      groups[k].orders += num(getField(r,map,'orders'));
+    });
+    Object.values(groups).forEach(g => {
+      const acos = pct(g.spend, g.sales);
+      const category = placementCategory(g.placement);
+      const {flag, flagClass} = classifyPlacementFlag(category, g.orders, acos, g.spend, g.clicks, asp, goal);
+      out.push({...g, acos, ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks), flag, flagClass});
+    });
+  });
+  return out;
+}
+
+// One row per campaign (rolled up across its placements), with Status using the same
+// shared classification as Keyword/Search Term Health. This is the top-level view;
+// clicking a campaign expands to its placement-level breakdown (computeCampaignPlacement
+// above), where the placement-specific Flags (Scale Opportunity/Bleeding/High ACOS) live.
+function computeCampaignPlacementSummary(campaignPlacementRows, overview){
+  const asp = overview.adOrders > 0 ? overview.adSales / overview.adOrders
+    : (overview.unitsOrdered > 0 ? overview.revenue / overview.unitsOrdered : Infinity);
+  const goal = STATE.settings.acosGoal;
+  const groups = {};
+  campaignPlacementRows.forEach(r => {
+    const k = r.adType + '|' + r.campaign;
+    if (!groups[k]) groups[k] = {adType:r.adType, campaign:r.campaign, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+    groups[k].impressions += r.impressions;
+    groups[k].clicks += r.clicks;
+    groups[k].spend += r.spend;
+    groups[k].sales += r.sales;
+    groups[k].orders += r.orders;
+  });
+  return Object.values(groups).map(g => {
+    const acos = pct(g.spend, g.sales);
+    const {status, label} = classifyPerfStatus(g.orders, acos, g.spend, g.clicks, g.impressions, asp, goal, false);
+    return {...g, acos, ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks), status, label};
+  });
+}
+
+// SBV (Sponsored Brands Video) campaigns advertise a single product, and per the
+// account's naming convention the ASIN is embedded directly in the campaign name
+// (e.g. "SBV - KW - Phrase - Fungal Treatment - B06XZQCNS9 - ES"). Unlike classic SB
+// headline ads (which promote multiple products and can't be attributed to one ASIN),
+// this lets SBV spend be attributed to a specific ASIN even without a dedicated SBV
+// report. Campaigns without a recognizable ASIN in the name (e.g. "...- Mixed - ES")
+// are left unattributed rather than guessed at.
+function extractAsinFromCampaignName(name){
+  const m = String(name||'').match(/\bB0[A-Z0-9]{8}\b/i);
+  return m ? m[0].toUpperCase() : null;
+}
+
+// MerchantSpring "Retail Analytics by Product" YoY lookup, keyed by ASIN. Status is
+// based on Units YoY (not Revenue YoY) per request — a product can look fine on
+// revenue alone (e.g. a price increase masking falling demand), so units is the
+// more honest signal of whether it's actually selling more or fewer of the item.
+function computeMerchantSpringLookup(){
+  const map = STATE.headers.merchantSpring || {};
+  const rows = STATE.raw.merchantSpring || [];
+  const lookup = {};
+  rows.forEach(r => {
+    const asin = map.msAsin ? r[map.msAsin] : null;
+    if (!asin) return;
+    const currRev = num(getField(r,map,'msOrderedRevenue'));
+    const priorRev = num(getField(r,map,'msPriorOrderedRevenue'));
+    const currUnits = num(getField(r,map,'msOrderedUnits'));
+    const priorUnits = num(getField(r,map,'msPriorOrderedUnits'));
+    const isNew = priorUnits === 0;
+    const revYoy = priorRev ? pct(currRev - priorRev, priorRev) : null;
+    const unitsYoy = priorUnits ? pct(currUnits - priorUnits, priorUnits) : null;
+    let status, statusClass;
+    if (isNew){ status = 'New'; statusClass = 'sb-monitor'; }
+    else if (unitsYoy < 0){ status = 'YoY Down'; statusClass = 'sb-waste'; }
+    else { status = 'YoY Up'; statusClass = 'sb-win'; }
+    lookup[asin] = {currRev, priorRev, currUnits, priorUnits, revYoy, unitsYoy, status, statusClass};
+  });
+  return lookup;
+}
+
+// Account-wide YoY summary for the Overview tab — sums current/prior revenue and units
+// across every row in the MerchantSpring file (not just ASINs also present in the
+// ad/retail reports), so it reflects MerchantSpring's own full-account total.
+function computeMerchantSpringOverview(){
+  if (!STATE.raw.merchantSpring) return null;
+  const lookup = computeMerchantSpringLookup();
+  const rows = Object.values(lookup);
+  if (!rows.length) return null;
+  const t = rows.reduce((a,r) => ({
+    currRev: a.currRev + r.currRev, priorRev: a.priorRev + r.priorRev,
+    currUnits: a.currUnits + r.currUnits, priorUnits: a.priorUnits + r.priorUnits
+  }), {currRev:0, priorRev:0, currUnits:0, priorUnits:0});
+  return {
+    currRev: t.currRev, priorRev: t.priorRev, currUnits: t.currUnits, priorUnits: t.priorUnits,
+    revYoy: t.priorRev ? pct(t.currRev - t.priorRev, t.priorRev) : null,
+    unitsYoy: t.priorUnits ? pct(t.currUnits - t.priorUnits, t.priorUnits) : null
+  };
+}
+
+function computeAsin(){
+  const out = {};
+  const ensure = (asin) => {
+    if (!out[asin]) out[asin] = {asin, parentAsin:null, impressions:0, clicks:0, spend:0, adSales:0, orders:0, revenue:0, unitsOrdered:0, sessions:null, sessionPct:null, sbvSpend:0, sbvSales:0, sbvOrders:0};
+    return out[asin];
+  };
+  [['advSP','SP'], ['advSD','SD']].forEach(([key,label]) => {
+    const map = STATE.headers[key] || {};
+    const rows = STATE.raw[key] || [];
+    rows.forEach(r => {
+      const asin = map.advertisedAsin ? r[map.advertisedAsin] : null;
+      if (!asin) return;
+      const g = ensure(asin);
+      g.impressions += num(getField(r,map,'impressions'));
+      g.clicks += num(getField(r,map,'clicks'));
+      g.spend += num(getField(r,map,'spend'));
+      g.adSales += num(getField(r,map,'sales'));
+      g.orders += num(getField(r,map,'orders'));
+    });
+  });
+  // SBV spend, attributed via ASIN embedded in the campaign name (see
+  // extractAsinFromCampaignName above). Folded into the main spend/adSales/orders so
+  // ACOS/TACOS reflect true SP+SD+SBV total, with sbvSpend/sbvSales/sbvOrders kept
+  // separately too so the SBV portion stays visible rather than hidden inside the total.
+  const cm = STATE.headers.campExport || {};
+  const campRows = STATE.raw.campExport || [];
+  campRows.forEach(r => {
+    const name = cm.campaignName ? r[cm.campaignName] : '';
+    if (!String(name||'').trim().toUpperCase().startsWith('SBV')) return;
+    const asin = extractAsinFromCampaignName(name);
+    if (!asin) return; // e.g. "...- Mixed - ES" — multi-product, can't attribute
+    const g = ensure(asin);
+    const spend = num(getField(r,cm,'spend'));
+    const sales = num(getField(r,cm,'sales'));
+    const orders = num(getField(r,cm,'orders'));
+    g.spend += spend; g.adSales += sales; g.orders += orders;
+    g.sbvSpend += spend; g.sbvSales += sales; g.sbvOrders += orders;
+  });
+  const rm = STATE.headers.retail || {};
+  const retail = STATE.raw.retail || [];
+  retail.forEach(r => {
+    const asin = rm.childAsin ? r[rm.childAsin] : null;
+    if (!asin) return;
+    const g = ensure(asin);
+    g.parentAsin = rm.parentAsin ? r[rm.parentAsin] : null;
+    g.revenue += num(getField(r,rm,'orderedProductSales'));
+    g.unitsOrdered += num(getField(r,rm,'unitsOrdered'));
+    if (STATE.settings.type !== 'VC' && rm.sessions){
+      g.sessions = (g.sessions || 0) + num(getField(r,rm,'sessions'));
+    }
+    if (STATE.settings.type !== 'VC' && rm.sessionPct){
+      g.sessionPct = num(getField(r,rm,'sessionPct'));
+    }
+  });
+  const msLookup = computeMerchantSpringLookup();
+  // Cross-source check: when MerchantSpring is uploaded, it's an independent second
+  // source for the same ASIN's current-period revenue as the retail report. These two
+  // numbers should roughly agree. A big divergence is a much more reliable "something's
+  // wrong" signal than any single-source ratio threshold — a ratio-based check (e.g.
+  // "TACOS > 300%") was tried first, but it fires just as easily on a genuinely
+  // low-revenue ASIN with wasted spend as on an actual parsing error, and critically
+  // it would NOT have caught the real incident this was built for (inflating revenue
+  // makes TACOS look artificially better, not worse). Source disagreement is the
+  // signal that's actually specific to a parsing problem.
+  const REVENUE_MISMATCH_THRESHOLD = 0.20; // 20% divergence between sources
+  return Object.values(out).map(a => {
+    const organicSales = Math.max(a.revenue - a.adSales, 0);
+    const ms = msLookup[a.asin] || null;
+    let revenueMismatch = false;
+    if (ms && ms.currRev > 0 && a.revenue > 0){
+      const diff = Math.abs(a.revenue - ms.currRev) / Math.max(a.revenue, ms.currRev);
+      revenueMismatch = diff > REVENUE_MISMATCH_THRESHOLD;
+    }
+    return {...a,
+      acos: pct(a.spend, a.adSales),
+      tacos: pct(a.spend, a.revenue || a.adSales),
+      revenueMismatch,
+      ctr: pct(a.clicks, a.impressions),
+      cvr: pct(a.orders, a.clicks),
+      organicSalesPct: a.revenue ? pct(organicSales, a.revenue) : null,
+      unitSessionPct: (a.sessions !== null && a.sessions) ? pct(a.unitsOrdered, a.sessions) : null,
+      msRevYoy: ms ? ms.revYoy : null,
+      msUnitsYoy: ms ? ms.unitsYoy : null,
+      msStatus: ms ? ms.status : null,
+      msStatusClass: ms ? ms.statusClass : null,
+      msCurrRev: ms ? ms.currRev : 0,
+      msPriorRev: ms ? ms.priorRev : 0,
+      msCurrUnits: ms ? ms.currUnits : 0,
+      msPriorUnits: ms ? ms.priorUnits : 0,
+      msHasData: !!ms
+    };
+  });
+}
+
+// Rolls child-ASIN rows up to their Parent ASIN for the ASIN Performance tab's
+// parent-level view. Children with no known parent roll up under their own ASIN.
+function computeAsinParents(childRows){
+  const groups = {};
+  childRows.forEach(a => {
+    const key = a.parentAsin || a.asin;
+    if (!groups[key]) groups[key] = {asin:key, childCount:0, impressions:0, clicks:0, spend:0, adSales:0, orders:0, revenue:0, unitsOrdered:0, sessions:null, sessionPct:0, sbvSpend:0, sbvSales:0, sbvOrders:0, msCurrRev:0, msPriorRev:0, msCurrUnits:0, msPriorUnits:0, msHasData:false};
+    const g = groups[key];
+    g.childCount++;
+    g.impressions += a.impressions; g.clicks += a.clicks; g.spend += a.spend; g.adSales += a.adSales;
+    g.orders += a.orders; g.revenue += a.revenue; g.unitsOrdered += a.unitsOrdered;
+    g.sessionPct += (a.sessionPct||0);
+    g.sbvSpend += (a.sbvSpend||0); g.sbvSales += (a.sbvSales||0); g.sbvOrders += (a.sbvOrders||0);
+    g.msCurrRev += (a.msCurrRev||0); g.msPriorRev += (a.msPriorRev||0);
+    g.msCurrUnits += (a.msCurrUnits||0); g.msPriorUnits += (a.msPriorUnits||0);
+    if (a.msHasData) g.msHasData = true;
+    if (a.sessions !== null) g.sessions = (g.sessions || 0) + a.sessions;
+  });
+  return Object.values(groups).map(g => {
+    const organicSales = Math.max(g.revenue - g.adSales, 0);
+    // Blended parent-level YoY, computed from summed current/prior values across all
+    // children — not an average of each child's individual %, which would be skewed by
+    // low-volume children.
+    const msRevYoy = g.msHasData && g.msPriorRev ? pct(g.msCurrRev - g.msPriorRev, g.msPriorRev) : null;
+    const msUnitsYoy = g.msHasData && g.msPriorUnits ? pct(g.msCurrUnits - g.msPriorUnits, g.msPriorUnits) : null;
+    let msStatus = null, msStatusClass = null;
+    if (g.msHasData){
+      if (!g.msPriorUnits){ msStatus = 'New'; msStatusClass = 'sb-monitor'; }
+      else if (msUnitsYoy < 0){ msStatus = 'YoY Down'; msStatusClass = 'sb-waste'; }
+      else { msStatus = 'YoY Up'; msStatusClass = 'sb-win'; }
+    }
+    return {...g,
+      acos: pct(g.spend, g.adSales),
+      tacos: pct(g.spend, g.revenue || g.adSales),
+      ctr: pct(g.clicks, g.impressions),
+      cvr: pct(g.orders, g.clicks),
+      organicSalesPct: g.revenue ? pct(organicSales, g.revenue) : null,
+      unitSessionPct: g.sessions ? pct(g.unitsOrdered, g.sessions) : null,
+      msRevYoy, msUnitsYoy, msStatus, msStatusClass
+    };
+  });
+}
+
+// Which campaigns are advertising a given ASIN, and how each one performs — this is
+// what lets you pinpoint which specific campaign is driving a high ACOS/TACOS for that
+// product, rather than only seeing the ASIN's blended total across all campaigns.
+// Sourced from the SP and SD Advertised Product Reports (both already at the Campaign
+// × ASIN grain), plus SBV (Sponsored Brands Video) campaigns from the Campaign Export,
+// attributed via the ASIN embedded in the campaign name (see
+// extractAsinFromCampaignName). Classic SB headline/collection ads still aren't
+// included — those promote multiple products at once, so there's no way to attribute
+// their spend to one specific ASIN.
+function computeAsinCampaignBreakdownLive(asin){
+  const out = [];
+  [['advSP','SP'], ['advSD','SD']].forEach(([key, label]) => {
+    const map = STATE.headers[key] || {};
+    const rows = STATE.raw[key] || [];
+    const groups = {};
+    rows.forEach(r => {
+      const rAsin = map.advertisedAsin ? r[map.advertisedAsin] : null;
+      if (rAsin !== asin) return;
+      const campaign = (map.campaignName && r[map.campaignName]) || (map.campaignNameInfo && r[map.campaignNameInfo]) || '(unknown campaign)';
+      if (!groups[campaign]) groups[campaign] = {adType:label, campaign, impressions:0, clicks:0, spend:0, adSales:0, orders:0};
+      groups[campaign].impressions += num(getField(r,map,'impressions'));
+      groups[campaign].clicks += num(getField(r,map,'clicks'));
+      groups[campaign].spend += num(getField(r,map,'spend'));
+      groups[campaign].adSales += num(getField(r,map,'sales'));
+      groups[campaign].orders += num(getField(r,map,'orders'));
+    });
+    Object.values(groups).forEach(g => out.push({...g, acos: pct(g.spend,g.adSales), ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks)}));
+  });
+  const cm = STATE.headers.campExport || {};
+  const campRows = STATE.raw.campExport || [];
+  campRows.forEach(r => {
+    const name = cm.campaignName ? r[cm.campaignName] : '';
+    if (!String(name||'').trim().toUpperCase().startsWith('SBV')) return;
+    if (extractAsinFromCampaignName(name) !== asin) return;
+    const impressions = num(getField(r,cm,'impressions'));
+    const clicks = num(getField(r,cm,'clicks'));
+    const spend = num(getField(r,cm,'spend'));
+    const adSales = num(getField(r,cm,'sales'));
+    const orders = num(getField(r,cm,'orders'));
+    out.push({adType:'SBV', campaign:name, impressions, clicks, spend, adSales, orders, acos:pct(spend,adSales), ctr:pct(clicks,impressions), cvr:pct(orders,clicks)});
+  });
+  return out.sort((a,b) => b.spend - a.spend);
+}
+
+// Wrapper used everywhere the drill-down data is needed. In a live session (files just
+// uploaded), STATE.raw has the data and computeAsinCampaignBreakdownLive works directly.
+// After restoring from an exported HTML snapshot, STATE.raw is empty (raw file data isn't
+// saved in exports to keep file size sane) — but the snapshot does carry a pre-computed
+// cache built at export time, so the drill-down still works instead of coming back empty.
+function computeAsinCampaignBreakdown(asin){
+  const cache = STATE.computed && STATE.computed.asinCampaignBreakdowns;
+  if (cache && cache[asin]) return cache[asin];
+  return computeAsinCampaignBreakdownLive(asin);
+}
+
+function keywordSet(){
+  const bulkData = STATE.raw.bulk || {keywordRows:[]};
+  const bm = STATE.headers.bulk || {};
+  const set = new Set();
+  bulkData.keywordRows.forEach(r => {
+    const kw = bm.keywordText ? r[bm.keywordText] : null;
+    if (kw) set.add(norm(kw));
+  });
+  return set;
+}
+
+// Shared performance classification, used by both Keyword/Target Health and Search
+// Term Health so both tabs speak the same language. allowUnderbid is only enabled
+// for the Keyword tab — search terms are customer queries, not something you bid on
+// directly, so "underbidding" doesn't apply there the same way.
+function classifyPerfStatus(orders, acos, spend, clicks, impressions, asp, goal, allowUnderbid){
+  // 1. Wasted Spend: 0 orders and (spend past one average sale's worth, or enough
+  //    clicks to be a real sample) — OR a single order that still ran at 100%+ ACOS
+  //    (broke even or lost money on that one sale).
+  if ((orders === 0 && (spend > asp || clicks >= 15)) || (orders === 1 && acos >= 100)){
+    return {status:'sb-waste', label:'Wasted Spend'};
+  }
+  // 2. High ACOS: converting, but well above goal.
+  if (orders > 0 && acos > goal * 1.5){
+    return {status:'sb-serp', label:'High ACOS'};
+  }
+  // 3. Underbidding (keyword tab only): converting extremely efficiently — ACOS at a
+  //    quarter of goal or better — signals there's room to bid up and capture more
+  //    volume at that efficiency. (A "not enough impressions/clicks" version of this
+  //    was considered too, but without a real Impression Share metric — which needs a
+  //    separate report this tool doesn't currently ingest — there's no way to tell
+  //    "genuinely underbid" apart from "just a naturally low-volume term," so it was
+  //    left out rather than ship a signal that would fire on nearly every keyword.)
+  if (allowUnderbid && orders > 0 && acos <= goal * 0.25){
+    return {status:'sb-underbid', label:'Underbidding'};
+  }
+  // 4. Winner: genuine sales driver — 3+ orders and within the ACOS goal.
+  if (orders >= 3 && acos <= goal){
+    return {status:'sb-win', label:'Winner'};
+  }
+  // Everything else doesn't cleanly fit any signal above — flagging it as one of
+  // those would be a false signal either way, so it gets a neutral status instead.
+  return {status:'sb-monitor', label:'Monitor'};
+}
+
+function computeKeywordHealth(overview){
+  // Average Selling Price at the account level — spending more than one average sale's
+  // worth with zero orders is a clean, scale-aware "this is wasted" signal, rather than
+  // a fixed dollar/euro threshold that wouldn't mean the same thing across accounts.
+  const asp = overview.adOrders > 0 ? overview.adSales / overview.adOrders
+    : (overview.unitsOrdered > 0 ? overview.revenue / overview.unitsOrdered : Infinity);
+
+  const bulkData = STATE.raw.bulk || {keywordRows:[]};
+  const bm = STATE.headers.bulk || {};
+  const groups = {};
+  bulkData.keywordRows.forEach(r => {
+    const entity = bm.entity ? String(r[bm.entity]||'').toLowerCase().trim() : '';
+    const product = bm.product ? (r[bm.product] || 'Sponsored Products') : 'Sponsored Products';
+    const campaign = (bm.campaignName && r[bm.campaignName]) || (bm.campaignNameInfo && r[bm.campaignNameInfo]) || '(unknown campaign)';
+    const kw = bm.keywordText ? r[bm.keywordText] : null;
+    const expr = bm.productTargetingExpression ? r[bm.productTargetingExpression] : '';
+    const label = kw || expr || (entity === 'product targeting' ? 'Product Targeting (unlabeled)' : null);
+    if (!label) return;
+    const match = entity === 'product targeting' ? classifyTargetType(expr) : (bm.matchType ? r[bm.matchType] : '');
+    const k = product + '|' + campaign + '|' + label + '|' + match;
+    if (!groups[k]) groups[k] = {product, campaign, keyword:label, matchType:match, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+    groups[k].impressions += num(getField(r,bm,'impressions'));
+    groups[k].clicks += num(getField(r,bm,'clicks'));
+    groups[k].spend += num(getField(r,bm,'spend'));
+    groups[k].sales += num(getField(r,bm,'sales'));
+    groups[k].orders += num(getField(r,bm,'orders'));
+  });
+  return Object.values(groups).map(g => {
+    const acos = pct(g.spend, g.sales);
+    const goal = STATE.settings.acosGoal;
+    const {status, label} = classifyPerfStatus(g.orders, acos, g.spend, g.clicks, g.impressions, asp, goal, true);
+    return {...g, acos, ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks), status, label};
+  });
+}
+
+// Amazon keyword fields cap length at 80 characters and disallow most special
+// characters — a "search term" that violates this (often a mis-parsed product
+// title/description rather than an actual customer query) can never be created
+// as a keyword, so flagging it as a harvesting opportunity would be misleading.
+function isValidKeywordCandidate(term){
+  if (!term) return false;
+  const t = String(term);
+  if (t.length > 80) return false;
+  if (/[|<>{}\[\]\\^~_#*=]/.test(t)) return false;
+  return true;
+}
+
+function computeSearchTermHealth(overview){
+  // Same ASP used for the Keyword tab — one consistent definition of "wasted" across
+  // both tabs.
+  const asp = overview.adOrders > 0 ? overview.adSales / overview.adOrders
+    : (overview.unitsOrdered > 0 ? overview.revenue / overview.unitsOrdered : Infinity);
+  const goal = STATE.settings.acosGoal;
+
+  const bulkData = STATE.raw.bulk || {searchTermRows:[]};
+  const stm = STATE.raw.bulk ? STATE.raw.bulk.searchTermMap : {};
+  const kwSet = keywordSet();
+  const groups = {};
+  bulkData.searchTermRows.forEach(r => {
+    const term = stm.searchTerm ? r[stm.searchTerm] : null;
+    if (!term) return;
+    const product = stm.product ? (r[stm.product] || 'Sponsored Products') : 'Sponsored Products';
+    const campaign = stm.campaignName ? (r[stm.campaignName] || '(unknown campaign)') : '(unknown campaign)';
+    const k = product + '|' + campaign + '|' + term;
+    if (!groups[k]) groups[k] = {product, campaign, term, impressions:0, clicks:0, spend:0, sales:0, orders:0};
+    groups[k].impressions += num(getField(r,stm,'impressions'));
+    groups[k].clicks += num(getField(r,stm,'clicks'));
+    groups[k].spend += num(getField(r,stm,'spend'));
+    groups[k].sales += num(getField(r,stm,'sales'));
+    groups[k].orders += num(getField(r,stm,'orders'));
+  });
+  return Object.values(groups).map(g => {
+    const acos = pct(g.spend, g.sales);
+    // "Harvested?" stays separate info — whether this term is already targeted as its
+    // own keyword — independent of how it's performing.
+    const harvested = kwSet.has(norm(g.term));
+    const eligible = isValidKeywordCandidate(g.term);
+    const {status: flagClass, label: flag} = classifyPerfStatus(g.orders, acos, g.spend, g.clicks, g.impressions, asp, goal, false);
+    return {...g, acos, ctr: pct(g.clicks,g.impressions), cvr: pct(g.orders,g.clicks), harvested, eligible, flag, flagClass};
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// COLOUR HELPERS
+// ─────────────────────────────────────────────────────────────────────────
+function acosClass(v){
+  const goal = STATE.settings.acosGoal;
+  if (v <= goal) return 'ok-c';
+  if (v <= goal * 1.25) return 'warn-c';
+  return 'crit-c';
+}
+function tacosClass(v){
+  const goal = STATE.settings.tacosGoal;
+  if (v <= goal) return 'ok-c';
+  if (v <= goal * 1.25) return 'warn-c';
+  return 'crit-c';
+}
+// Higher Organic Sales % is healthier (less ad-dependent), so this is inverted from
+// ACOS/TACOS. Thresholds are fixed rather than goal-based — deliberately not adjusted
+// for product launch date, since some ASINs are advertised before they're really
+// "ads ready," making a lifecycle-based threshold unreliable anyway.
+function organicClass(v){
+  if (v >= 60) return 'ok-c';
+  if (v >= 40) return 'warn-c';
+  return 'crit-c';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// RENDER — UPLOAD GRID
+// ─────────────────────────────────────────────────────────────────────────
+function renderUploadGrid(){
+  const grid = document.getElementById('up-grid');
+  grid.innerHTML = REPORT_DEFS.map(r => `
+    <div class="up-card" id="up-card-${r.key}" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop('${r.key}', event)">
+      <div class="up-title">${r.title}${!r.required ? '<span class="opt-tag">OPTIONAL</span>' : ''}</div>
+      <div class="up-sub">${r.sub}</div>
+      <div class="up-drop-hint">Drag &amp; drop, or</div>
+      <input type="file" accept=".csv,.xlsx,.xls" ${r.multi?'multiple':''} onchange="onFileSelected('${r.key}', this)">
+      <div class="up-status pending" id="up-status-${r.key}">No file uploaded</div>
+    </div>`).join('');
+}
+
+function handleDragOver(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function handleDragLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function handleDrop(key, e){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (files && files.length) onFileSelected(key, {files});
+}
+// Without this, dropping a file anywhere outside a specific upload card would make
+// the browser navigate away and try to open that file directly, losing the whole
+// session. This just prevents that default behavior everywhere else on the page —
+// the actual upload handling above still only runs for drops on a real upload card.
+if (typeof document.addEventListener === 'function'){
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => e.preventDefault());
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// RENDER — TABS
+// ─────────────────────────────────────────────────────────────────────────
+const TABS = [
+  {key:'overview', label:'Overview'},
+  {key:'asin', label:'ASIN Performance'},
+  {key:'keyword', label:'Keyword / Target Health'},
+  {key:'searchterm', label:'Search Term Health'},
+  {key:'placement', label:'Placement Performance'}
+];
+
+function setTab(key){
+  STATE.activeTab = key;
+  const content = document.getElementById('tab-content');
+  if (content) content.innerHTML = `<div class="locked-tab">Loading…</div>`;
+  setTimeout(render, 10);
+}
+
+function render(){
+  updateHeader();
+  const nav = document.getElementById('tab-nav');
+  nav.innerHTML = TABS.map(t => {
+    return `<button class="tbtn ${STATE.activeTab===t.key?'on':''}" onclick="setTab('${t.key}')">${t.label}</button>`;
+  }).join('');
+
+  const content = document.getElementById('tab-content');
+  if (!STATE.computed){
+    content.innerHTML = `<div class="locked-tab">Upload all <b>4 mandatory reports</b> above to generate the dashboard. Placement Reports and the SD Advertised Product Report are optional — skipping them just means the relevant sections (placement tables, SD-attributed ASIN spend) show as incomplete or locked rather than blocking the whole dashboard.</div>`;
+    return;
+  }
+  const renderers = {overview: renderOverviewTab, asin: renderAsinTab, keyword: renderKeywordTab, searchterm: renderSearchTermTab, placement: renderPlacementTab};
+  content.innerHTML = renderers[STATE.activeTab]();
+}
+const debouncedRender = debounce(render, 250);
+
+function renderOverviewTab(){
+  const o = STATE.computed.overview;
+  const isVC = STATE.settings.type === 'VC';
+  const ms = STATE.computed.msOverview;
+  let html = '';
+
+  if (ms && ms.currRev > 0 && o.revenue > 0){
+    const diff = Math.abs(o.revenue - ms.currRev) / Math.max(o.revenue, ms.currRev);
+    if (diff > 0.20){
+      html += `<div class="warn-banner">⚠ Account-level Revenue disagrees by more than 20% between the retail report (${fmt$(o.revenue)}) and MerchantSpring (${fmt$(ms.currRev)}) for the same period — these are two independent sources that should roughly agree. Worth checking both source files before relying on these totals.</div>`;
+    }
+  }
+
+  if (ms){
+    const revBadge = ms.revYoy === null ? '<span class="yoy-tag">YoY</span> <span class="dim-c">—</span>'
+      : `<span class="yoy-tag">YoY</span> <span class="${ms.revYoy>=0?'yoy-pos':'yoy-neg'}">${ms.revYoy>=0?'+':''}${fmtPct(ms.revYoy)}</span>`;
+    const unitsBadge = ms.unitsYoy === null ? '<span class="yoy-tag">YoY</span> <span class="dim-c">—</span>'
+      : `<span class="yoy-tag">YoY</span> <span class="${ms.unitsYoy>=0?'yoy-pos':'yoy-neg'}">${ms.unitsYoy>=0?'+':''}${fmtPct(ms.unitsYoy)}</span>`;
+    html += `<div class="sec-title">Overall (MerchantSpring YoY)</div>
+    <div class="kpi-grid">
+      <div class="kpi grp-sales"><div class="kpi-lbl">Total Revenue</div><div class="kpi-val">${fmt$(ms.currRev)}</div><div class="yoy-row">${revBadge}</div></div>
+      <div class="kpi grp-sales"><div class="kpi-lbl">Total Units</div><div class="kpi-val">${fmtNum(ms.currUnits)}</div><div class="yoy-row">${unitsBadge}</div></div>
+    </div>
+    `;
+  }
+
+  html += `<div class="sec-title">Overall Sales Performance Summary</div>
+  <div class="kpi-grid">
+    <div class="kpi grp-sales"><div class="kpi-lbl">Revenue</div><div class="kpi-val">${fmt$(o.revenue)}</div></div>
+    <div class="kpi grp-sales"><div class="kpi-lbl">Units Ordered</div><div class="kpi-val">${fmtNum(o.unitsOrdered)}</div></div>
+    <div class="kpi grp-sales"><div class="kpi-lbl">Sessions</div><div class="kpi-val">${isVC ? 'N/A (VC)' : fmtNum(o.sessions)}</div></div>
+    <div class="kpi grp-sales"><div class="kpi-lbl">Unit Session %</div><div class="kpi-val">${isVC ? 'N/A (VC)' : fmtPct(o.unitSessionPct)}</div></div>
+  </div>
+
+  <div class="sec-title">Overall Advertising Performance Summary</div>
+  <div class="kpi-grid">
+    <div class="kpi grp-ads"><div class="kpi-lbl">Ad Sales</div><div class="kpi-val">${fmt$(o.adSales)}</div></div>
+    <div class="kpi grp-ads"><div class="kpi-lbl">Ad Spend</div><div class="kpi-val">${fmt$(o.spend)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Impressions</div><div class="kpi-val">${fmtNum(o.impressions)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Clicks</div><div class="kpi-val">${fmtNum(o.clicks)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">CTR</div><div class="kpi-val">${fmtPct(o.ctr)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">CPC</div><div class="kpi-val">${fmt$dec(o.cpc)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">CVR</div><div class="kpi-val">${fmtPct(o.cvr)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Ad Orders</div><div class="kpi-val">${fmtNum(o.adOrders)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">CPA</div><div class="kpi-val">${fmt$dec(o.cpa)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">CAC</div><div class="kpi-val">${fmt$dec(o.cac)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">% SB NTB Sales</div><div class="kpi-val">${o.sbNtbPct===null?'—':fmtPct(o.sbNtbPct)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">% SD NTB Sales</div><div class="kpi-val">${o.sdNtbPct===null?'—':fmtPct(o.sdNtbPct)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">ACOS</div><div class="kpi-val ${acosClass(o.acos)}">${fmtPct(o.acos)}</div><div class="kpi-extra">Goal: ${STATE.settings.acosGoal}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">TACOS</div><div class="kpi-val ${tacosClass(o.tacos)}">${fmtPct(o.tacos)}</div><div class="kpi-extra">Goal: ${STATE.settings.tacosGoal}%</div></div>
+    <div class="kpi"><div class="kpi-lbl">ROAS</div><div class="kpi-val">${o.roas.toFixed(2)}x</div></div>
+    <div class="kpi"><div class="kpi-lbl">TROAS</div><div class="kpi-val">${o.troas.toFixed(2)}x</div></div>
+    <div class="kpi grp-sales"><div class="kpi-lbl">Organic Sales</div><div class="kpi-val">${fmt$(o.organicSales)}</div></div>
+    <div class="kpi grp-sales"><div class="kpi-lbl">Organic Sales %</div><div class="kpi-val">${fmtPct(o.organicSalesPct)}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Ad Sales %</div><div class="kpi-val">${fmtPct(o.adSalesPct)}</div></div>
+  </div>
+
+  <div class="sec-title">Performance by Campaign Type</div>
+  <div class="tbl-outer"><table><thead><tr class="sh">
+    ${ovTh('Campaign Type','product','campaignType')}${ovTh('NTB Orders','ntbOrders','campaignType')}${ovTh('NTB Sales','ntbSales','campaignType')}${ovTh('Impr.','impressions','campaignType')}${ovTh('Clicks','clicks','campaignType')}${ovTh('CPC','cpc','campaignType')}${ovTh('Spend','spend','campaignType')}${ovTh('Sales','sales','campaignType')}${ovTh('Orders','orders','campaignType')}${ovTh('CTR','ctr','campaignType')}${ovTh('CVR','cvr','campaignType')}${ovTh('ACOS','acos','campaignType')}${ovTh('% Ad Spend','pctAdSpend','campaignType')}${ovTh('% Ad Sales','pctAdSales','campaignType')}${ovTh('% Total Sales','pctTotalSales','campaignType')}
+  </tr></thead><tbody>`;
+  const ct = STATE.computed.campaignType;
+  sortRows(ct.rows, STATE.ovSort.campaignType).forEach(g => { html += campaignTypeRow(g); });
+  html += campaignTypeRow(ct.total, true);
+  html += `</tbody></table></div>`;
+
+  ['Sponsored Products','Sponsored Brands'].forEach(product => {
+    const mt = product === 'Sponsored Products' ? STATE.computed.matchTypeSP : STATE.computed.matchTypeSB;
+    html += `<div class="subtbl-title">Performance by Match Type (${product})</div>
+    <div class="tbl-outer"><table><thead><tr class="sh">
+      ${ovTh('Match Type','matchType','matchType')}${ovTh('Impr.','impressions','matchType')}${ovTh('Clicks','clicks','matchType')}${ovTh('CPC','cpc','matchType')}${ovTh('Spend','spend','matchType')}${ovTh('Sales','sales','matchType')}${ovTh('Orders','orders','matchType')}${ovTh('CTR','ctr','matchType')}${ovTh('CVR','cvr','matchType')}${ovTh('ACOS','acos','matchType')}${ovTh('% Ad Spend','pctAdSpend','matchType')}${ovTh('% Ad Sales','pctAdSales','matchType')}${ovTh('% Total Sales','pctTotalSales','matchType')}
+    </tr></thead><tbody>`;
+    sortRows(mt.rows, STATE.ovSort.matchType).forEach(g => { html += matchTypeRow(g); });
+    html += matchTypeRow(mt.total, true);
+    html += `</tbody></table></div>`;
+  });
+
+  ['SP','SB'].forEach(adType => {
+    const hasKey = adType === 'SP' ? 'hasPlacementSP' : 'hasPlacementSB';
+    html += `<div class="subtbl-title">Performance by Ad Placement (${adType === 'SP' ? 'Sponsored Products' : 'Sponsored Brands'})</div>`;
+    if (!STATE.computed[hasKey]){
+      html += `<div class="locked-tab">Upload the Placement Report — ${adType} to unlock this section.</div>`;
+      return;
+    }
+    html += `<div class="tbl-outer"><table><thead><tr class="sh">
+      ${ovTh('Placement Type','placement','placement')}${ovTh('Impr.','impressions','placement')}${ovTh('Clicks','clicks','placement')}${ovTh('CTR','ctr','placement')}${ovTh('Spend','spend','placement')}${ovTh('Sales','sales','placement')}${ovTh('Orders','orders','placement')}${ovTh('CVR','cvr','placement')}${ovTh('ACOS','acos','placement')}
+    </tr></thead><tbody>`;
+    const rows = sortRows(STATE.computed.placement.filter(p => p.adType === adType), STATE.ovSort.placement);
+    rows.forEach(g => {
+      html += `<tr><td class="tl">${g.placement}</td><td>${fmtNum(g.impressions)}</td><td>${fmtNum(g.clicks)}</td><td>${fmtPct(g.ctr)}</td><td>${fmt$(g.spend)}</td><td>${fmt$(g.sales)}</td><td>${fmtNum(g.orders)}</td><td>${fmtPct(g.cvr)}</td><td class="${acosClass(g.acos)}">${fmtPct(g.acos)}</td></tr>`;
+    });
+    const t = rows.reduce((a,g)=>({impressions:a.impressions+g.impressions,clicks:a.clicks+g.clicks,spend:a.spend+g.spend,sales:a.sales+g.sales,orders:a.orders+g.orders}),{impressions:0,clicks:0,spend:0,sales:0,orders:0});
+    html += `<tr class="total-row"><td class="tl">Total</td><td>${fmtNum(t.impressions)}</td><td>${fmtNum(t.clicks)}</td><td>${fmtPct(pct(t.clicks,t.impressions))}</td><td>${fmt$(t.spend)}</td><td>${fmt$(t.sales)}</td><td>${fmtNum(t.orders)}</td><td>${fmtPct(pct(t.orders,t.clicks))}</td><td class="${acosClass(pct(t.spend,t.sales))}">${fmtPct(pct(t.spend,t.sales))}</td></tr>`;
+    html += `</tbody></table></div>`;
+  });
+  return html;
+}
+
+function setOvSort(sortKey, field){ toggleSort(STATE.ovSort[sortKey], field); render(); }
+// Shared across every sortable-column-header helper below, so a text column's header
+// always left-aligns the same way its data cells do — previously each helper decided
+// this independently and several forgot to, leaving headers right-aligned over
+// left-aligned text data.
+const LEFT_ALIGN_FIELDS = new Set([
+  'asin','parentAsin','product','matchType','placement','adType','campaign',
+  'keyword','term','label','flag'
+]);
+function thClass(field){ return LEFT_ALIGN_FIELDS.has(field) ? ' class="tl"' : ''; }
+
+function ovTh(label, field, sortKey){
+  return `<th${thClass(field)} onclick="setOvSort('${sortKey}','${field}')">${label}${sortArrow(STATE.ovSort[sortKey], field)}</th>`;
+}
+
+function campaignTypeRow(g, isTotal){
+  const rowClass = isTotal ? ' class="total-row"' : '';
+  return `<tr${rowClass}><td class="tl">${g.product}</td><td>${fmtNum(g.ntbOrders||0)}</td><td>${fmt$(g.ntbSales||0)}</td><td>${fmtNum(g.impressions)}</td><td>${fmtNum(g.clicks)}</td><td>${fmt$dec(g.cpc)}</td><td>${fmt$(g.spend)}</td><td>${fmt$(g.sales)}</td><td>${fmtNum(g.orders)}</td><td>${fmtPct(g.ctr)}</td><td>${fmtPct(g.cvr)}</td><td class="${acosClass(g.acos)}">${fmtPct(g.acos)}</td><td>${fmtPct(g.pctAdSpend)}</td><td>${fmtPct(g.pctAdSales)}</td><td>${fmtPct(g.pctTotalSales)}</td></tr>`;
+}
+function matchTypeRow(g, isTotal){
+  const rowClass = isTotal ? ' class="total-row"' : '';
+  return `<tr${rowClass}><td class="tl">${g.matchType}</td><td>${fmtNum(g.impressions)}</td><td>${fmtNum(g.clicks)}</td><td>${fmt$dec(g.cpc)}</td><td>${fmt$(g.spend)}</td><td>${fmt$(g.sales)}</td><td>${fmtNum(g.orders)}</td><td>${fmtPct(g.ctr)}</td><td>${fmtPct(g.cvr)}</td><td class="${acosClass(g.acos)}">${fmtPct(g.acos)}</td><td>${fmtPct(g.pctAdSpend)}</td><td>${fmtPct(g.pctAdSales)}</td><td>${fmtPct(g.pctTotalSales)}</td></tr>`;
+}
+
+function setAsinView(v){ STATE.asinView = v; render(); }
+function setAsinFilter(f){ STATE.asinFilter = (STATE.asinFilter === f) ? null : f; render(); }
+function onAsinSearch(v){ STATE.asinSearch = v; debouncedRender(); }
+function setAsinSort(field){
+  // top10/worst10 chips carry their own implicit sort — if one is active, clicking a
+  // column header would otherwise be silently ignored while the arrow still updated,
+  // making the header look wrong. Clicking a header means the user wants explicit
+  // control, so clear the chip filter.
+  if (STATE.asinFilter === 'top10' || STATE.asinFilter === 'worst10') STATE.asinFilter = null;
+  toggleSort(STATE.asinSort, field);
+  render();
+}
+
+function getAsinFilterChipRows(rows){
+  const goal = STATE.settings;
+  if (STATE.asinFilter === 'acos_critical') return rows.filter(a => a.spend > 0 && a.acos > goal.acosGoal * 1.5);
+  if (STATE.asinFilter === 'tacos_critical') return rows.filter(a => a.spend > 0 && a.tacos > goal.tacosGoal * 1.5);
+  if (STATE.asinFilter === 'top10') return rows.filter(a => a.spend > 0 && a.acos <= goal.acosGoal && a.tacos <= goal.tacosGoal).sort((a,b)=>b.revenue-a.revenue).slice(0,10);
+  if (STATE.asinFilter === 'worst10') return rows.filter(a => a.spend > 0).sort((a,b)=>b.acos-a.acos).slice(0,10);
+  return rows;
+}
+
+function asinTh(label, field){
+  return `<th${thClass(field)} onclick="setAsinSort('${field}')">${label}${sortArrow(STATE.asinSort, field)}</th>`;
+}
+
+function renderAsinTab(){
+  const isVC = STATE.settings.type === 'VC';
+  const childRows = STATE.computed.asin;
+  const sdMissingNote = !STATE.computed.hasAdvSD
+    ? `<div class="modal-note">SD Advertised Product Report not uploaded — Spend/Ad Sales/Orders below reflect SP and SBV only, so ASINs also advertised via Sponsored Display will show as lower than their true total.</div>`
+    : '';
+  const mismatchedAsins = childRows.filter(a => a.revenueMismatch);
+  const implausibleNote = mismatchedAsins.length
+    ? `<div class="warn-banner">⚠ ${mismatchedAsins.length} ASIN${mismatchedAsins.length>1?'s':''} (${mismatchedAsins.slice(0,5).map(a=>a.asin).join(', ')}${mismatchedAsins.length>5?', +'+(mismatchedAsins.length-5)+' more':''}) show revenue that disagrees by more than 20% between the retail report and MerchantSpring for the same period — these are two independent sources that should roughly agree. Worth checking both source files for these ASINs before relying on the numbers.</div>`
+    : '';
+  const allRows = STATE.asinView === 'parent' ? computeAsinParents(childRows) : childRows;
+  const acosCritCount = childRows.filter(a => a.spend > 0 && a.acos > STATE.settings.acosGoal * 1.5).length;
+  const tacosCritCount = childRows.filter(a => a.spend > 0 && a.tacos > STATE.settings.tacosGoal * 1.5).length;
+  let rows = getAsinFilterChipRows(allRows);
+  if (STATE.asinSearch) {
+    const q = STATE.asinSearch.toLowerCase();
+    rows = rows.filter(a => (a.asin+'').toLowerCase().indexOf(q) !== -1 || (a.parentAsin && (a.parentAsin+'').toLowerCase().indexOf(q) !== -1));
+  }
+  // Chip filters (top10/worst10) already sort themselves; otherwise use the clickable column sort.
+  const isChipSorted = STATE.asinFilter === 'top10' || STATE.asinFilter === 'worst10';
+  rows = isChipSorted ? rows : sortRows(rows, STATE.asinSort);
+  const {shown, total, truncated} = capRows(rows);
+
+  let html = `<div class="ctrl">
+    <div class="view-toggle">
+      <button class="${STATE.asinView==='child'?'on':''}" onclick="setAsinView('child')">Child ASIN</button>
+      <button class="${STATE.asinView==='parent'?'on':''}" onclick="setAsinView('parent')">Parent Rollup</button>
+    </div>
+    <div class="srch"><input placeholder="Search Child or Parent ASIN…" value="${STATE.asinSearch}" oninput="onAsinSearch(this.value)"></div>
+    <span class="rcnt">${total} ASINs${truncated?' (showing top '+ROW_CAP+' by current sort)':''}</span>
+  </div>
+  ${implausibleNote}
+  ${sdMissingNote}
+  <div class="chip-row">
+    <button class="chip ${STATE.asinFilter==='acos_critical'?'on':''}" onclick="setAsinFilter('acos_critical')">🔴 ACOS Critical<span class="cnt">${acosCritCount}</span></button>
+    <button class="chip ${STATE.asinFilter==='tacos_critical'?'on':''}" onclick="setAsinFilter('tacos_critical')">🔴 TACOS Critical<span class="cnt">${tacosCritCount}</span></button>
+    <button class="chip ${STATE.asinFilter==='top10'?'on':''}" onclick="setAsinFilter('top10')">🏆 Top 10 Performing<span class="cnt">10</span></button>
+    <button class="chip ${STATE.asinFilter==='worst10'?'on':''}" onclick="setAsinFilter('worst10')">⚠️ Top 10 Worst Performers<span class="cnt">10</span></button>
+  </div>
+  <div class="tbl-outer"><table id="asin-tbl"><thead><tr class="sh">
+    ${asinTh(STATE.asinView==='parent'?'Parent ASIN':'Child ASIN', 'asin')}
+    ${STATE.asinView==='child'?asinTh('Parent ASIN','parentAsin'):asinTh('# Children','childCount')}
+    ${asinTh('Impr.','impressions')}${asinTh('Clicks','clicks')}${asinTh('CTR','ctr')}${asinTh('Spend','spend')}${asinTh('Incl. SBV','sbvSpend')}${asinTh('Ad Sales','adSales')}${asinTh('Orders','orders')}${asinTh('CVR','cvr')}${asinTh('Revenue','revenue')}${asinTh('Organic Sales %','organicSalesPct')}${asinTh('Units','unitsOrdered')}${asinTh('ACOS','acos')}${asinTh('TACOS','tacos')}${asinTh('Session %','sessionPct')}${STATE.computed.hasMerchantSpring?asinTh('Rev YoY %','msRevYoy')+asinTh('Units YoY %','msUnitsYoy')+asinTh('Status','msStatus'):''}
+  </tr></thead><tbody>`;
+  shown.forEach(r => {
+    const idCol = STATE.asinView==='parent' ? `<td>${r.childCount}</td>` : `<td class="tl pa-tag">${r.parentAsin||'—'}</td>`;
+    const asinCell = STATE.asinView==='child'
+      ? `<td class="tl a-tag a-tag-clickable" onclick="openAsinDrilldown('${r.asin}')" title="Click to see which campaigns advertise this ASIN">${r.asin}</td>`
+      : `<td class="tl a-tag">${r.asin}</td>`;
+    const organicCell = r.organicSalesPct === null ? '<td class="dim-c">N/A</td>' : `<td class="${organicClass(r.organicSalesPct)}">${fmtPct(r.organicSalesPct)}</td>`;
+    let msCells = '';
+    if (STATE.computed.hasMerchantSpring){
+      const revYoyCell = r.msRevYoy === null || r.msRevYoy === undefined ? '<td class="dim-c">—</td>' : `<td class="${r.msRevYoy>=0?'ok-c':'crit-c'}">${r.msRevYoy>=0?'+':''}${fmtPct(r.msRevYoy)}</td>`;
+      const unitsYoyCell = r.msUnitsYoy === null || r.msUnitsYoy === undefined ? '<td class="dim-c">—</td>' : `<td class="${r.msUnitsYoy>=0?'ok-c':'crit-c'}">${r.msUnitsYoy>=0?'+':''}${fmtPct(r.msUnitsYoy)}</td>`;
+      const statusCell = r.msStatus ? `<td class="tl"><span class="sbadge ${r.msStatusClass}">${r.msStatus}</span></td>` : '<td class="tl dim-c">—</td>';
+      msCells = revYoyCell + unitsYoyCell + statusCell;
+    }
+    html += `<tr>${asinCell}${idCol}<td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td><td>${fmtPct(r.ctr)}</td><td>${fmt$(r.spend)}</td><td class="dim-c">${r.sbvSpend?fmt$(r.sbvSpend):'—'}</td><td>${fmt$(r.adSales)}</td><td>${fmtNum(r.orders)}</td><td>${fmtPct(r.cvr)}</td><td>${fmt$(r.revenue)}</td>${organicCell}<td>${fmtNum(r.unitsOrdered)}</td><td class="${acosClass(r.acos)}">${fmtPct(r.acos)}</td><td class="${tacosClass(r.tacos)}">${fmtPct(r.tacos)}</td><td>${(r.sessionPct===null||isVC)?'N/A (VC)':fmtPct(r.sessionPct)}</td>${msCells}</tr>`;
+  });
+  // Totals reflect the full filtered set (rows), not just the capped/displayed subset —
+  // e.g. searching a Parent ASIN shows all its children above, and this totals every
+  // one of them even if more than the display cap.
+  const tt = {impressions:0, clicks:0, spend:0, sbvSpend:0, adSales:0, orders:0, revenue:0, unitsOrdered:0, sessions:0, sessionPct:0, msCurrRev:0, msPriorRev:0, msCurrUnits:0, msPriorUnits:0};
+  rows.forEach(r => {
+    tt.impressions+=r.impressions; tt.clicks+=r.clicks; tt.spend+=r.spend; tt.sbvSpend+=(r.sbvSpend||0); tt.adSales+=r.adSales;
+    tt.orders+=r.orders; tt.revenue+=r.revenue; tt.unitsOrdered+=r.unitsOrdered;
+    if (!isVC && r.sessions) tt.sessions += r.sessions;
+    tt.sessionPct += (r.sessionPct||0);
+    tt.msCurrRev += (r.msCurrRev||0); tt.msPriorRev += (r.msPriorRev||0);
+    tt.msCurrUnits += (r.msCurrUnits||0); tt.msPriorUnits += (r.msPriorUnits||0);
+  });
+  const ttAcos = pct(tt.spend, tt.adSales), ttTacos = pct(tt.spend, tt.revenue||tt.adSales);
+  const ttOrganicPct = tt.revenue ? pct(Math.max(tt.revenue-tt.adSales,0), tt.revenue) : null;
+  let ttMsCells = '';
+  if (STATE.computed.hasMerchantSpring){
+    const ttRevYoy = tt.msPriorRev ? pct(tt.msCurrRev-tt.msPriorRev, tt.msPriorRev) : null;
+    const ttUnitsYoy = tt.msPriorUnits ? pct(tt.msCurrUnits-tt.msPriorUnits, tt.msPriorUnits) : null;
+    ttMsCells = `<td class="${ttRevYoy===null?'':ttRevYoy>=0?'ok-c':'crit-c'}">${ttRevYoy===null?'—':(ttRevYoy>=0?'+':'')+fmtPct(ttRevYoy)}</td><td class="${ttUnitsYoy===null?'':ttUnitsYoy>=0?'ok-c':'crit-c'}">${ttUnitsYoy===null?'—':(ttUnitsYoy>=0?'+':'')+fmtPct(ttUnitsYoy)}</td><td></td>`;
+  }
+  html += `<tr class="total-row"><td class="tl" colspan="2">Total (${rows.length} ${STATE.asinView==='parent'?'parent ASINs':'ASINs'})</td><td>${fmtNum(tt.impressions)}</td><td>${fmtNum(tt.clicks)}</td><td>${fmtPct(pct(tt.clicks,tt.impressions))}</td><td>${fmt$(tt.spend)}</td><td>${fmt$(tt.sbvSpend)}</td><td>${fmt$(tt.adSales)}</td><td>${fmtNum(tt.orders)}</td><td>${fmtPct(pct(tt.orders,tt.clicks))}</td><td>${fmt$(tt.revenue)}</td><td class="${ttOrganicPct===null?'':organicClass(ttOrganicPct)}">${ttOrganicPct===null?'N/A':fmtPct(ttOrganicPct)}</td><td>${fmtNum(tt.unitsOrdered)}</td><td class="${acosClass(ttAcos)}">${fmtPct(ttAcos)}</td><td class="${tacosClass(ttTacos)}">${fmtPct(ttTacos)}</td><td>${isVC?'N/A (VC)':fmtPct(tt.sessionPct)}</td>${ttMsCells}</tr>`;
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function openAsinDrilldown(asin){
+  STATE.drilldownAsin = asin;
+  document.getElementById('modal-root').innerHTML = renderAsinDrilldownModal(asin);
+}
+function closeAsinDrilldown(){
+  STATE.drilldownAsin = null;
+  document.getElementById('modal-root').innerHTML = '';
+}
+function setModalSort(field){
+  toggleSort(STATE.modalSort, field);
+  document.getElementById('modal-root').innerHTML = renderAsinDrilldownModal(STATE.drilldownAsin);
+}
+function modalTh(label, field){ return `<th${thClass(field)} onclick="setModalSort('${field}')">${label}${sortArrow(STATE.modalSort, field)}</th>`; }
+
+function renderAsinDrilldownModal(asin){
+  const rows = sortRows(computeAsinCampaignBreakdown(asin), STATE.modalSort);
+  const totalSpend = rows.reduce((s,r)=>s+r.spend,0);
+  const totalSales = rows.reduce((s,r)=>s+r.adSales,0);
+  let body;
+  if (!rows.length){
+    body = `<div class="empty-tab">No SP, SD, or SBV campaign-level data found for this ASIN. (Classic SB headline ads aren't included — see note below.)</div>`;
+  } else {
+    body = `<div class="tbl-outer"><table><thead><tr class="sh">
+      ${modalTh('Ad Type','adType')}${modalTh('Campaign','campaign')}${modalTh('Impr.','impressions')}${modalTh('Clicks','clicks')}${modalTh('CTR','ctr')}${modalTh('Spend','spend')}${modalTh('Ad Sales','adSales')}${modalTh('Orders','orders')}${modalTh('CVR','cvr')}${modalTh('ACOS','acos')}
+    </tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="tl">${r.adType}</td><td class="tl">${r.campaign}</td><td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td><td>${fmtPct(r.ctr)}</td><td>${fmt$(r.spend)}</td><td>${fmt$(r.adSales)}</td><td>${fmtNum(r.orders)}</td><td>${fmtPct(r.cvr)}</td><td class="${acosClass(r.acos)}">${fmtPct(r.acos)}</td></tr>`).join('')}
+      <tr class="total-row"><td class="tl" colspan="5">Total</td><td>${fmt$(totalSpend)}</td><td>${fmt$(totalSales)}</td><td colspan="2"></td><td class="${acosClass(pct(totalSpend,totalSales))}">${fmtPct(pct(totalSpend,totalSales))}</td></tr>
+    </tbody></table></div>`;
+  }
+  return `<div class="modal-backdrop" onclick="if(event.target===this) closeAsinDrilldown()">
+    <div class="modal-panel">
+      <div class="modal-hdr">
+        <h3>Campaigns advertising ${asin}</h3>
+        <div class="modal-hdr-actions">
+          ${rows.length ? `<button class="btn btn-sm" onclick="exportAsinDrilldownExcel('${asin}')">⇓ Download Excel</button>` : ''}
+          <button class="modal-close" onclick="closeAsinDrilldown()">✕</button>
+        </div>
+      </div>
+      <div class="modal-note">Source: SP and SD Advertised Product Reports, plus SBV (Sponsored Brands Video) campaigns attributed via the ASIN in the campaign name. Classic SB headline/collection ads still aren't shown — those promote multiple products at once, so there's no way to attribute their spend to one specific ASIN.</div>
+      ${body}
+    </div>
+  </div>`;
+}
+
+function setKwFilterStatus(v){ STATE.kwFilterStatus = v; render(); }
+function setKwFilterMatch(v){ STATE.kwFilterMatch = v; render(); }
+function setKwFilterCampaign(v){ STATE.kwFilterCampaign = v; render(); }
+function onKwSearch(v){ STATE.kwSearch = v; debouncedRender(); }
+function setKwSort(field){ toggleSort(STATE.kwSort, field); render(); }
+function kwTh(label, field){ return `<th${thClass(field)} onclick="setKwSort('${field}')">${label}${sortArrow(STATE.kwSort, field)}</th>`; }
+
+function renderKeywordTab(){
+  const all = STATE.computed.keywordHealth;
+  const statuses = [...new Set(all.map(r => r.label))];
+  const matchTypes = [...new Set(all.map(r => r.matchType))];
+  const campaigns = [...new Set(all.map(r => r.campaign))].sort();
+  let filtered = all;
+  if (STATE.kwFilterStatus) filtered = filtered.filter(r => r.label === STATE.kwFilterStatus);
+  if (STATE.kwFilterMatch) filtered = filtered.filter(r => r.matchType === STATE.kwFilterMatch);
+  if (STATE.kwFilterCampaign) filtered = filtered.filter(r => r.campaign === STATE.kwFilterCampaign);
+  if (STATE.kwSearch) filtered = filtered.filter(r => r.keyword.toLowerCase().indexOf(STATE.kwSearch.toLowerCase()) !== -1);
+
+  let html = `<div class="ctrl">
+    <div class="srch"><input placeholder="Search keyword…" value="${STATE.kwSearch}" oninput="onKwSearch(this.value)"></div>
+    <select onchange="setKwFilterStatus(this.value)">
+      <option value="">All statuses</option>
+      ${statuses.map(s => `<option value="${s}" ${STATE.kwFilterStatus===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+    <select onchange="setKwFilterMatch(this.value)">
+      <option value="">All match types</option>
+      ${matchTypes.map(m => `<option value="${m}" ${STATE.kwFilterMatch===m?'selected':''}>${m}</option>`).join('')}
+    </select>
+    <select onchange="setKwFilterCampaign(this.value)">
+      <option value="">All campaigns</option>
+      ${campaigns.map(c => `<option value="${c}" ${STATE.kwFilterCampaign===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+    <span class="rcnt">${filtered.length} keywords/targets</span>
+  </div>`;
+
+  ['Sponsored Products','Sponsored Brands'].forEach(product => {
+    const productRows = sortRows(filtered.filter(r => r.product === product), STATE.kwSort);
+    const {shown, total, truncated} = capRows(productRows);
+    html += `<div class="subtbl-title">${product} (${total}${truncated?', showing top '+ROW_CAP+' by current sort':''})</div>
+    <div class="tbl-outer"><table><thead><tr class="sh">
+      ${kwTh('Keyword / Target','keyword')}${kwTh('Campaign','campaign')}${kwTh('Match Type','matchType')}${kwTh('Impr.','impressions')}${kwTh('Clicks','clicks')}${kwTh('CTR','ctr')}${kwTh('Spend','spend')}${kwTh('Sales','sales')}${kwTh('Orders','orders')}${kwTh('CVR','cvr')}${kwTh('ACOS','acos')}${kwTh('Status','label')}
+    </tr></thead><tbody>`;
+    shown.forEach(r => {
+      html += `<tr><td class="tl">${r.keyword}</td><td class="tl">${r.campaign}</td><td class="tl">${r.matchType}</td><td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td><td>${fmtPct(r.ctr)}</td><td>${fmt$(r.spend)}</td><td>${fmt$(r.sales)}</td><td>${fmtNum(r.orders)}</td><td>${fmtPct(r.cvr)}</td><td class="${acosClass(r.acos)}">${fmtPct(r.acos)}</td><td class="tl"><span class="sbadge ${r.status}">${r.label}</span></td></tr>`;
+    });
+    if (!total) html += `<tr><td colspan="12" class="tl dim-c">No rows match the current filters.</td></tr>`;
+    else {
+      const tt = productRows.reduce((t,r)=>({impressions:t.impressions+r.impressions,clicks:t.clicks+r.clicks,spend:t.spend+r.spend,sales:t.sales+r.sales,orders:t.orders+r.orders}),{impressions:0,clicks:0,spend:0,sales:0,orders:0});
+      html += `<tr class="total-row"><td class="tl" colspan="3">Total (${total})</td><td>${fmtNum(tt.impressions)}</td><td>${fmtNum(tt.clicks)}</td><td>${fmtPct(pct(tt.clicks,tt.impressions))}</td><td>${fmt$(tt.spend)}</td><td>${fmt$(tt.sales)}</td><td>${fmtNum(tt.orders)}</td><td>${fmtPct(pct(tt.orders,tt.clicks))}</td><td class="${acosClass(pct(tt.spend,tt.sales))}">${fmtPct(pct(tt.spend,tt.sales))}</td><td></td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  });
+  return html;
+}
+
+function setStFilterFlag(v){ STATE.stFilterFlag = v; render(); }
+function setStFilterCampaign(v){ STATE.stFilterCampaign = v; render(); }
+function onStSearch(v){ STATE.stSearch = v; debouncedRender(); }
+function setStSort(field){ toggleSort(STATE.stSort, field); render(); }
+function stTh(label, field){ return `<th${thClass(field)} onclick="setStSort('${field}')">${label}${sortArrow(STATE.stSort, field)}</th>`; }
+
+function renderSearchTermTab(){
+  const all = STATE.computed.searchTermHealth;
+  const flags = [...new Set(all.map(r => r.flag))];
+  const campaigns = [...new Set(all.map(r => r.campaign))].sort();
+  let filtered = all;
+  if (STATE.stFilterFlag) filtered = filtered.filter(r => r.flag === STATE.stFilterFlag);
+  if (STATE.stFilterCampaign) filtered = filtered.filter(r => r.campaign === STATE.stFilterCampaign);
+  if (STATE.stSearch) filtered = filtered.filter(r => r.term.toLowerCase().indexOf(STATE.stSearch.toLowerCase()) !== -1);
+
+  let html = `<div class="ctrl">
+    <div class="srch"><input placeholder="Search term…" value="${STATE.stSearch}" oninput="onStSearch(this.value)"></div>
+    <select onchange="setStFilterFlag(this.value)">
+      <option value="">All flags</option>
+      ${flags.map(f => `<option value="${f}" ${STATE.stFilterFlag===f?'selected':''}>${f}</option>`).join('')}
+    </select>
+    <select onchange="setStFilterCampaign(this.value)">
+      <option value="">All campaigns</option>
+      ${campaigns.map(c => `<option value="${c}" ${STATE.stFilterCampaign===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+    <span class="rcnt">${filtered.length} search terms</span>
+  </div>`;
+
+  ['Sponsored Products','Sponsored Brands'].forEach(product => {
+    const productRows = sortRows(filtered.filter(r => r.product === product), STATE.stSort);
+    const {shown, total, truncated} = capRows(productRows);
+    html += `<div class="subtbl-title">${product} (${total}${truncated?', showing top '+ROW_CAP+' by current sort':''})</div>
+    <div class="tbl-outer"><table><thead><tr class="sh">
+      ${stTh('Search Term','term')}${stTh('Campaign','campaign')}${stTh('Impr.','impressions')}${stTh('Clicks','clicks')}${stTh('CTR','ctr')}${stTh('Spend','spend')}${stTh('Sales','sales')}${stTh('Orders','orders')}${stTh('CVR','cvr')}${stTh('ACOS','acos')}${stTh('Flag','flag')}
+    </tr></thead><tbody>`;
+    shown.forEach(r => {
+      html += `<tr><td class="tl">${r.term}</td><td class="tl">${r.campaign}</td><td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td><td>${fmtPct(r.ctr)}</td><td>${fmt$(r.spend)}</td><td>${fmt$(r.sales)}</td><td>${fmtNum(r.orders)}</td><td>${fmtPct(r.cvr)}</td><td class="${acosClass(r.acos)}">${fmtPct(r.acos)}</td><td class="tl"><span class="sbadge ${r.flagClass}">${r.flag}</span></td></tr>`;
+    });
+    if (!total) html += `<tr><td colspan="11" class="tl dim-c">No rows match the current filters.</td></tr>`;
+    else {
+      const tt = productRows.reduce((t,r)=>({impressions:t.impressions+r.impressions,clicks:t.clicks+r.clicks,spend:t.spend+r.spend,sales:t.sales+r.sales,orders:t.orders+r.orders}),{impressions:0,clicks:0,spend:0,sales:0,orders:0});
+      html += `<tr class="total-row"><td class="tl" colspan="2">Total (${total})</td><td>${fmtNum(tt.impressions)}</td><td>${fmtNum(tt.clicks)}</td><td>${fmtPct(pct(tt.clicks,tt.impressions))}</td><td>${fmt$(tt.spend)}</td><td>${fmt$(tt.sales)}</td><td>${fmtNum(tt.orders)}</td><td>${fmtPct(pct(tt.orders,tt.clicks))}</td><td class="${acosClass(pct(tt.spend,tt.sales))}">${fmtPct(pct(tt.spend,tt.sales))}</td><td></td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  });
+  return html;
+}
+
+function onPlSearch(v){ STATE.plSearch = v; debouncedRender(); }
+function setPlFilterStatus(v){ STATE.plFilterStatus = v; render(); }
+function setPlSort(field){ toggleSort(STATE.plSort, field); render(); }
+function plTh(label, field){ return `<th${thClass(field)} onclick="setPlSort('${field}')">${label}${sortArrow(STATE.plSort, field)}</th>`; }
+function togglePlExpand(key){
+  STATE.plExpandedCampaign = (STATE.plExpandedCampaign === key) ? null : key;
+  render();
+}
+
+function renderPlacementCampaignRow(r, cols){
+  const key = r.adType + '|' + r.campaign;
+  const expanded = STATE.plExpandedCampaign === key;
+  let html = `<tr class="pl-campaign-row ${expanded?'expanded':''}" onclick="togglePlExpand('${key.replace(/'/g,"\\'")}')">
+    <td class="tl"><span class="expand-caret">${expanded?'▾':'▸'}</span> ${r.campaign}</td>
+    <td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td><td>${fmtPct(r.ctr)}</td><td>${fmt$(r.spend)}</td><td>${fmt$(r.sales)}</td><td>${fmtNum(r.orders)}</td><td>${fmtPct(r.cvr)}</td><td class="${acosClass(r.acos)}">${fmtPct(r.acos)}</td><td class="tl"><span class="sbadge ${r.status}">${r.label}</span></td>
+  </tr>`;
+  if (expanded){
+    const placementRows = sortRows(STATE.computed.campaignPlacement.filter(p => p.adType === r.adType && p.campaign === r.campaign), {field:'spend', dir:'desc'});
+    html += `<tr class="pl-expand-row"><td colspan="${cols}">
+      <div class="tbl-outer" style="margin:6px 0 10px"><table><thead><tr class="sh">
+        <th class="tl">Placement</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Spend</th><th>Sales</th><th>Orders</th><th>CVR</th><th>ACOS</th><th class="tl">Flag</th>
+      </tr></thead><tbody>
+        ${placementRows.map(p => `<tr><td class="tl">${p.placement}</td><td>${fmtNum(p.impressions)}</td><td>${fmtNum(p.clicks)}</td><td>${fmtPct(p.ctr)}</td><td>${fmt$(p.spend)}</td><td>${fmt$(p.sales)}</td><td>${fmtNum(p.orders)}</td><td>${fmtPct(p.cvr)}</td><td class="${acosClass(p.acos)}">${fmtPct(p.acos)}</td><td class="tl">${p.flag?`<span class="sbadge ${p.flagClass}">${p.flag}</span>`:'—'}</td></tr>`).join('')}
+      </tbody></table></div>
+    </td></tr>`;
+  }
+  return html;
+}
+
+function renderPlacementTab(){
+  if (!STATE.computed.hasPlacementSP && !STATE.computed.hasPlacementSB){
+    return `<div class="locked-tab">Upload the Placement Report — SP and/or Placement Report — SB above to unlock this tab. Both are optional, but at least one is needed to show placement performance.</div>`;
+  }
+  const all = STATE.computed.campaignPlacementSummary;
+  const statuses = [...new Set(all.map(r => r.label))];
+  let filtered = all;
+  let asinNote = '';
+  if (STATE.plSearch){
+    const q = STATE.plSearch.trim();
+    const isKnownAsin = STATE.computed.asin.some(a => a.asin.toLowerCase() === q.toLowerCase());
+    if (isKnownAsin){
+      // Placement Reports have no ASIN column, so cross-reference via the SP
+      // Advertised Product Report (campaign × ASIN grain) to find which campaigns
+      // advertise this ASIN — this is the most complete method for SP, since it also
+      // catches Auto/Catch-All campaigns that served this ASIN without naming it.
+      // SD isn't in Placement data at all. SB has no equivalent ASIN-level report, so
+      // for SB specifically the ASIN is instead extracted from the campaign name
+      // (the same technique already used for SBV attribution) — campaigns that don't
+      // name an ASIN (e.g. "...- Mixed - FR") are correctly excluded rather than shown
+      // unfiltered, since we can't confirm they actually advertise this ASIN.
+      const campaignSet = new Set(computeAsinCampaignBreakdown(q).filter(b => b.adType === 'SP').map(b => b.campaign));
+      filtered = filtered.filter(r =>
+        (r.adType === 'SP' && campaignSet.has(r.campaign)) ||
+        (r.adType === 'SB' && extractAsinFromCampaignName(r.campaign) === q)
+      );
+      asinNote = `<div class="modal-note">Showing SP campaigns advertising ${q} (cross-referenced via the Advertised Product Report), plus SB campaigns with ${q} named in the campaign — Sponsored Brands has no ASIN-level report, so campaigns that don't name an ASIN (e.g. "Mixed" campaigns) aren't shown here even if they may have advertised it.</div>`;
+    } else {
+      filtered = filtered.filter(r => r.campaign.toLowerCase().indexOf(q.toLowerCase()) !== -1);
+    }
+  }
+  if (STATE.plFilterStatus) filtered = filtered.filter(r => r.label === STATE.plFilterStatus);
+
+  let html = `<div class="ctrl">
+    <div class="srch"><input placeholder="Search Child ASIN or campaign name…" value="${STATE.plSearch}" oninput="onPlSearch(this.value)"></div>
+    <select onchange="setPlFilterStatus(this.value)">
+      <option value="">All statuses</option>
+      ${statuses.map(s => `<option value="${s}" ${STATE.plFilterStatus===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+    <span class="rcnt">${filtered.length} campaigns — click a row to see its placement breakdown</span>
+  </div>
+  ${asinNote}`;
+
+  const cols = 10;
+  ['SP','SB'].forEach(adType => {
+    const hasKey = adType === 'SP' ? 'hasPlacementSP' : 'hasPlacementSB';
+    if (!STATE.computed[hasKey]){
+      html += `<div class="subtbl-title">${adType === 'SP' ? 'Sponsored Products' : 'Sponsored Brands'}</div>
+      <div class="locked-tab">Upload the Placement Report — ${adType} to unlock this section.</div>`;
+      return;
+    }
+    const productRows = sortRows(filtered.filter(r => r.adType === adType), STATE.plSort);
+    const {shown, total, truncated} = capRows(productRows);
+    html += `<div class="subtbl-title">${adType === 'SP' ? 'Sponsored Products' : 'Sponsored Brands'} (${total}${truncated?', showing top '+ROW_CAP+' by current sort':''})</div>
+    <div class="tbl-outer"><table><thead><tr class="sh">
+      ${plTh('Campaign','campaign')}${plTh('Impr.','impressions')}${plTh('Clicks','clicks')}${plTh('CTR','ctr')}${plTh('Spend','spend')}${plTh('Sales','sales')}${plTh('Orders','orders')}${plTh('CVR','cvr')}${plTh('ACOS','acos')}${plTh('Status','label')}
+    </tr></thead><tbody>`;
+    shown.forEach(r => { html += renderPlacementCampaignRow(r, cols); });
+    if (!total) html += `<tr><td colspan="${cols}" class="tl dim-c">No rows match the current filters.</td></tr>`;
+    else {
+      const tt = productRows.reduce((t,r)=>({impressions:t.impressions+r.impressions,clicks:t.clicks+r.clicks,spend:t.spend+r.spend,sales:t.sales+r.sales,orders:t.orders+r.orders}),{impressions:0,clicks:0,spend:0,sales:0,orders:0});
+      html += `<tr class="total-row"><td class="tl">Total (${total})</td><td>${fmtNum(tt.impressions)}</td><td>${fmtNum(tt.clicks)}</td><td>${fmtPct(pct(tt.clicks,tt.impressions))}</td><td>${fmt$(tt.spend)}</td><td>${fmt$(tt.sales)}</td><td>${fmtNum(tt.orders)}</td><td>${fmtPct(pct(tt.orders,tt.clicks))}</td><td class="${acosClass(pct(tt.spend,tt.sales))}">${fmtPct(pct(tt.spend,tt.sales))}</td><td></td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  });
+  return html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────────────────────────────────────
+function exportHTML(){
+  // The exported file needs to carry its own data — without this, reopening it just
+  // re-runs the script from a blank slate (STATE resets, file inputs can never retain
+  // their selected files for security reasons) and the tool immediately shows the
+  // upload screen again, wiping out whatever was on screen when exported.
+  if (STATE.computed && STATE.computed.asin){
+    // Precompute the ASIN drill-down data (normally computed live from raw file data)
+    // for every ASIN, since raw file data itself isn't saved in the export — without
+    // this, clicking a Child ASIN after reopening the file would show no campaigns.
+    const cache = {};
+    STATE.computed.asin.forEach(a => { cache[a.asin] = computeAsinCampaignBreakdownLive(a.asin); });
+    STATE.computed.asinCampaignBreakdowns = cache;
+  }
+  const store = document.getElementById('data-store');
+  if (store) store.textContent = JSON.stringify({computed: STATE.computed, settings: STATE.settings});
+  const pageHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const blob = new Blob([pageHtml], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (STATE.settings.name || 'ppc-audit') + '-dashboard.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// EXCEL EXPORT (ExcelJS — styled, presentable output)
+// SheetJS (used elsewhere in this file) can only write plain data + basic
+// number formats in its free/browser build; real styling (colors, bold,
+// fills) requires a paid tier. ExcelJS is a separate library that supports
+// full styling client-side, so it's used here specifically for the
+// presentable export, while SheetJS remains in charge of reading uploads.
+// ─────────────────────────────────────────────────────────────────────────
+const XL_FONT = 'Arial';
+const XL_NAVY = 'FF1E3A5F';
+const XL_SLATE = 'FF6B7280';
+const XL_HEADER_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:XL_NAVY}};
+const XL_LIGHT_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF3F4F6'}};
+const XL_THIN_BORDER = {top:{style:'thin', color:{argb:'FFE5E7EB'}}, bottom:{style:'thin', color:{argb:'FFE5E7EB'}}, left:{style:'thin', color:{argb:'FFE5E7EB'}}, right:{style:'thin', color:{argb:'FFE5E7EB'}}};
+
+function xlCurFmt(dec){ return '"' + STATE.settings.currency + '"#,##0' + (dec ? '.00' : ''); }
+const XL_PCT_FMT = '0.00%';
+const XL_NUM_FMT = '#,##0';
+
+// Maps the same CSS classes used on-screen (acosClass/tacosClass/organicClass/status
+// badges) to Excel fill+font colors, so the export visually matches the tool.
+function xlStyleForClass(cssClass){
+  switch(cssClass){
+    case 'ok-c': case 'sb-win': return {fill:'FFDCFCE7', font:'FF15803D'};
+    case 'warn-c': case 'sb-serp': return {fill:'FFFEF3C7', font:'FF92400E'};
+    case 'crit-c': case 'sb-waste': return {fill:'FFFEE2E2', font:'FFB91C1C'};
+    case 'sb-monitor': return {fill:'FFE6F5F5', font:'FF0F766E'};
+    case 'sb-underbid': return {fill:'FFF3E8FF', font:'FF7E22CE'};
+    default: return null;
+  }
+}
+
+function xlTitle(ws, cellRef, text, mergeTo){
+  ws.getCell(cellRef).value = text;
+  ws.getCell(cellRef).font = {name:XL_FONT, size:16, bold:true, color:{argb:XL_NAVY}};
+  if (mergeTo) ws.mergeCells(cellRef + ':' + mergeTo);
+}
+function xlSubtitle(ws, cellRef, text, mergeTo){
+  ws.getCell(cellRef).value = text;
+  ws.getCell(cellRef).font = {name:XL_FONT, size:10, italic:true, color:{argb:XL_SLATE}};
+  if (mergeTo) ws.mergeCells(cellRef + ':' + mergeTo);
+}
+function xlSection(ws, cellRef, text){
+  ws.getCell(cellRef).value = text;
+  ws.getCell(cellRef).font = {name:XL_FONT, size:12, bold:true, color:{argb:XL_NAVY}};
+}
+
+// Writes one header row starting at (row, startCol) and returns the next row index.
+function xlHeaderRow(ws, row, startCol, headers){
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(row, startCol + i);
+    cell.value = h;
+    cell.font = {name:XL_FONT, size:10, bold:true, color:{argb:'FFFFFFFF'}};
+    cell.fill = XL_HEADER_FILL;
+    cell.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+    cell.border = XL_THIN_BORDER;
+  });
+  return row + 1;
+}
+
+// Writes one data row. `cols` is an array of {value, fmt, cls (optional css-class-like
+// color), bold (optional)}.
+function xlDataRow(ws, row, startCol, cols, isTotal){
+  cols.forEach((c, i) => {
+    const cell = ws.getCell(row, startCol + i);
+    cell.value = c.value;
+    cell.font = {name:XL_FONT, size:10, bold:!!(c.bold || isTotal)};
+    cell.border = XL_THIN_BORDER;
+    if (c.fmt) cell.numFmt = c.fmt;
+    if (isTotal) cell.fill = XL_LIGHT_FILL;
+    const style = c.cls ? xlStyleForClass(c.cls) : null;
+    if (style){
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:style.fill}};
+      cell.font = {name:XL_FONT, size:10, bold:true, color:{argb:style.font}};
+    }
+  });
+  return row + 1;
+}
+
+function xlSetColWidths(ws, widths){
+  widths.forEach((w, i) => { ws.getColumn(i+1).width = w; });
+}
+
+async function buildOverviewSheet(wb){
+  const ws = wb.addWorksheet('Overview');
+  const o = STATE.computed.overview;
+  const isVC = STATE.settings.type === 'VC';
+  const goal = STATE.settings;
+
+  xlTitle(ws, 'B2', `PPC Overview — ${STATE.settings.market || ''} Marketplace`, 'N2');
+  xlSubtitle(ws, 'B3', 'Account-level performance summary', 'N3');
+
+  function applyBoxBorder(startRow, endRow, startCol, endCol){
+    const thin = {style:'thin', color:{argb:'FF9CA3AF'}};
+    for (let r = startRow; r <= endRow; r++){
+      for (let c = startCol; c <= endCol; c++){
+        const cell = ws.getCell(r, c);
+        const border = {};
+        if (r === startRow) border.top = thin;
+        if (r === endRow) border.bottom = thin;
+        if (c === startCol) border.left = thin;
+        if (c === endCol) border.right = thin;
+        cell.border = border;
+      }
+    }
+  }
+
+  function kpiBox(row, col, label, value, fmt, cls){
+    const lc = ws.getCell(row, col);
+    lc.value = label.toUpperCase();
+    lc.font = {name:XL_FONT, size:9, bold:true, color:{argb:XL_SLATE}};
+    lc.alignment = {horizontal:'center'};
+    ws.mergeCells(row, col, row, col+1);
+    const vc = ws.getCell(row+1, col);
+    vc.value = value;
+    if (fmt) vc.numFmt = fmt;
+    const style = cls ? xlStyleForClass(cls) : null;
+    vc.font = {name:XL_FONT, size:13, bold:true, color:{argb: style ? style.font : XL_NAVY}};
+    vc.alignment = {horizontal:'center'};
+    ws.mergeCells(row+1, col, row+1, col+1);
+    for (let r = row; r <= row+1; r++) for (let c = col; c <= col+1; c++){
+      ws.getCell(r, c).fill = style ? {type:'pattern', pattern:'solid', fgColor:{argb:style.fill}} : XL_LIGHT_FILL;
+    }
+    applyBoxBorder(row, row+1, col, col+1);
+  }
+
+  function kpiBoxYoy(row, col, label, value, fmt, yoyPct){
+    kpiBox(row, col, label, value, fmt);
+    const yc = ws.getCell(row+2, col);
+    if (yoyPct === null){
+      yc.value = 'YoY —';
+      yc.font = {name:XL_FONT, size:9, color:{argb:XL_SLATE}};
+    } else {
+      yc.value = 'YoY ' + (yoyPct>=0?'+':'') + (yoyPct/100).toLocaleString('en-US', {style:'percent', minimumFractionDigits:1});
+      yc.font = {name:XL_FONT, size:10, bold:true, color:{argb: yoyPct>=0 ? 'FF15803D' : 'FFB91C1C'}};
+    }
+    yc.alignment = {horizontal:'center'};
+    ws.mergeCells(row+2, col, row+2, col+1);
+    for (let c = col; c <= col+1; c++){ ws.getCell(row+2, c).fill = XL_LIGHT_FILL; }
+    applyBoxBorder(row, row+2, col, col+1);
+  }
+
+  let r = 5;
+  const ms = STATE.computed.msOverview;
+  if (ms){
+    xlSection(ws, 'B'+r, 'Overall (MerchantSpring YoY)'); r += 2;
+    kpiBoxYoy(r, 2, 'Total Revenue', ms.currRev, xlCurFmt(), ms.revYoy);
+    kpiBoxYoy(r, 4, 'Total Units', ms.currUnits, XL_NUM_FMT, ms.unitsYoy);
+    r += 5;
+  }
+  xlSection(ws, 'B'+r, 'Overall Sales Performance'); r += 2;
+  kpiBox(r, 2, 'Revenue', o.revenue, xlCurFmt());
+  kpiBox(r, 4, 'Units Ordered', o.unitsOrdered, XL_NUM_FMT);
+  kpiBox(r, 6, 'Sessions', isVC ? 'N/A (VC)' : o.sessions, isVC ? null : XL_NUM_FMT);
+  kpiBox(r, 8, 'Unit Session %', isVC ? 'N/A (VC)' : o.unitSessionPct/100, isVC ? null : XL_PCT_FMT);
+
+  r += 4;
+  xlSection(ws, 'B'+r, 'Overall Advertising Performance'); r += 2;
+  kpiBox(r, 2, 'Ad Sales', o.adSales, xlCurFmt());
+  kpiBox(r, 4, 'Ad Spend', o.spend, xlCurFmt());
+  kpiBox(r, 6, 'ACOS', o.acos/100, XL_PCT_FMT, acosClass(o.acos));
+  kpiBox(r, 8, 'TACOS', o.tacos/100, XL_PCT_FMT, tacosClass(o.tacos));
+  kpiBox(r, 10, 'ROAS', o.roas, '0.00"x"');
+  kpiBox(r, 12, 'TROAS', o.troas, '0.00"x"');
+  r += 4;
+  kpiBox(r, 2, 'Impressions', o.impressions, XL_NUM_FMT);
+  kpiBox(r, 4, 'Clicks', o.clicks, XL_NUM_FMT);
+  kpiBox(r, 6, 'CTR', o.ctr/100, XL_PCT_FMT);
+  kpiBox(r, 8, 'CPC', o.cpc, xlCurFmt(true));
+  kpiBox(r, 10, 'CVR', o.cvr/100, XL_PCT_FMT);
+  kpiBox(r, 12, 'Ad Orders', o.adOrders, XL_NUM_FMT);
+  r += 4;
+  kpiBox(r, 2, 'CPA', o.cpa, xlCurFmt(true));
+  kpiBox(r, 4, '% SB NTB Sales', o.sbNtbPct===null?'—':o.sbNtbPct/100, o.sbNtbPct===null?null:XL_PCT_FMT);
+  kpiBox(r, 6, '% SD NTB Sales', o.sdNtbPct===null?'—':o.sdNtbPct/100, o.sdNtbPct===null?null:XL_PCT_FMT);
+  kpiBox(r, 8, 'Organic Sales', o.organicSales, xlCurFmt());
+  kpiBox(r, 10, 'Organic Sales %', o.organicSalesPct/100, XL_PCT_FMT);
+  kpiBox(r, 12, 'Ad Sales %', o.adSalesPct/100, XL_PCT_FMT);
+
+  r += 5;
+  xlSection(ws, 'B'+r, 'Performance by Campaign Type'); r += 2;
+  r = xlHeaderRow(ws, r, 2, ['Campaign Type','NTB Orders','NTB Sales','Impr.','Clicks','CPC','Spend','Sales','Orders','CTR','CVR','ACOS','% Ad Spend','% Ad Sales','% Total Sales']);
+  const ct = STATE.computed.campaignType;
+  ct.rows.forEach(g => {
+    r = xlDataRow(ws, r, 2, [
+      {value:g.product}, {value:g.ntbOrders||0, fmt:XL_NUM_FMT}, {value:g.ntbSales||0, fmt:xlCurFmt(true)},
+      {value:g.impressions, fmt:XL_NUM_FMT}, {value:g.clicks, fmt:XL_NUM_FMT}, {value:g.cpc, fmt:xlCurFmt(true)},
+      {value:g.spend, fmt:xlCurFmt(true)}, {value:g.sales, fmt:xlCurFmt(true)}, {value:g.orders, fmt:XL_NUM_FMT},
+      {value:g.ctr/100, fmt:XL_PCT_FMT}, {value:g.cvr/100, fmt:XL_PCT_FMT}, {value:g.acos/100, fmt:XL_PCT_FMT, cls:acosClass(g.acos)},
+      {value:g.pctAdSpend/100, fmt:XL_PCT_FMT}, {value:g.pctAdSales/100, fmt:XL_PCT_FMT}, {value:g.pctTotalSales/100, fmt:XL_PCT_FMT}
+    ]);
+  });
+  const ctt = ct.total;
+  r = xlDataRow(ws, r, 2, [
+    {value:'Total'}, {value:ctt.ntbOrders||0, fmt:XL_NUM_FMT}, {value:ctt.ntbSales||0, fmt:xlCurFmt(true)},
+    {value:ctt.impressions, fmt:XL_NUM_FMT}, {value:ctt.clicks, fmt:XL_NUM_FMT}, {value:ctt.cpc, fmt:xlCurFmt(true)},
+    {value:ctt.spend, fmt:xlCurFmt(true)}, {value:ctt.sales, fmt:xlCurFmt(true)}, {value:ctt.orders, fmt:XL_NUM_FMT},
+    {value:ctt.ctr/100, fmt:XL_PCT_FMT}, {value:ctt.cvr/100, fmt:XL_PCT_FMT}, {value:ctt.acos/100, fmt:XL_PCT_FMT},
+    {value:ctt.pctAdSpend/100, fmt:XL_PCT_FMT}, {value:ctt.pctAdSales/100, fmt:XL_PCT_FMT}, {value:ctt.pctTotalSales/100, fmt:XL_PCT_FMT}
+  ], true);
+
+  for (const [label, key] of [['Sponsored Products','matchTypeSP'], ['Sponsored Brands','matchTypeSB']]){
+    r += 2;
+    xlSection(ws, 'B'+r, 'Performance by Match Type — ' + label); r += 2;
+    r = xlHeaderRow(ws, r, 2, ['Match Type','Impr.','Clicks','CPC','Spend','Sales','Orders','CTR','CVR','ACOS','% Ad Spend','% Ad Sales','% Total Sales']);
+    const mt = STATE.computed[key];
+    mt.rows.forEach(g => {
+      r = xlDataRow(ws, r, 2, [
+        {value:g.matchType}, {value:g.impressions, fmt:XL_NUM_FMT}, {value:g.clicks, fmt:XL_NUM_FMT}, {value:g.cpc, fmt:xlCurFmt(true)},
+        {value:g.spend, fmt:xlCurFmt(true)}, {value:g.sales, fmt:xlCurFmt(true)}, {value:g.orders, fmt:XL_NUM_FMT},
+        {value:g.ctr/100, fmt:XL_PCT_FMT}, {value:g.cvr/100, fmt:XL_PCT_FMT}, {value:g.acos/100, fmt:XL_PCT_FMT, cls:acosClass(g.acos)},
+        {value:g.pctAdSpend/100, fmt:XL_PCT_FMT}, {value:g.pctAdSales/100, fmt:XL_PCT_FMT}, {value:g.pctTotalSales/100, fmt:XL_PCT_FMT}
+      ]);
+    });
+    const mtt = mt.total;
+    r = xlDataRow(ws, r, 2, [
+      {value:'Total'}, {value:mtt.impressions, fmt:XL_NUM_FMT}, {value:mtt.clicks, fmt:XL_NUM_FMT}, {value:mtt.cpc, fmt:xlCurFmt(true)},
+      {value:mtt.spend, fmt:xlCurFmt(true)}, {value:mtt.sales, fmt:xlCurFmt(true)}, {value:mtt.orders, fmt:XL_NUM_FMT},
+      {value:mtt.ctr/100, fmt:XL_PCT_FMT}, {value:mtt.cvr/100, fmt:XL_PCT_FMT}, {value:mtt.acos/100, fmt:XL_PCT_FMT},
+      {value:mtt.pctAdSpend/100, fmt:XL_PCT_FMT}, {value:mtt.pctAdSales/100, fmt:XL_PCT_FMT}, {value:mtt.pctTotalSales/100, fmt:XL_PCT_FMT}
+    ], true);
+  }
+
+  r += 2;
+  const placementRows = STATE.computed.placement || [];
+  if (placementRows.length){
+    for (const [adType, label] of [['SP','Sponsored Products'], ['SB','Sponsored Brands']]){
+      const rows = placementRows.filter(p => p.adType === adType);
+      if (!rows.length) continue;
+      xlSection(ws, 'B'+r, 'Performance by Ad Placement — ' + label); r += 2;
+      r = xlHeaderRow(ws, r, 2, ['Placement','Impr.','Clicks','CTR','Spend','Sales','Orders','CVR','ACOS']);
+      rows.forEach(g => {
+        r = xlDataRow(ws, r, 2, [
+          {value:g.placement}, {value:g.impressions, fmt:XL_NUM_FMT}, {value:g.clicks, fmt:XL_NUM_FMT}, {value:g.ctr/100, fmt:XL_PCT_FMT},
+          {value:g.spend, fmt:xlCurFmt(true)}, {value:g.sales, fmt:xlCurFmt(true)}, {value:g.orders, fmt:XL_NUM_FMT},
+          {value:g.cvr/100, fmt:XL_PCT_FMT}, {value:g.acos/100, fmt:XL_PCT_FMT, cls:acosClass(g.acos)}
+        ]);
+      });
+      r += 1;
+    }
+  } else {
+    xlSection(ws, 'B'+r, 'Performance by Ad Placement'); r += 1;
+    ws.getCell('B'+r).value = 'Placement Reports were not uploaded for this period, so placement-level performance is not available.';
+    ws.getCell('B'+r).font = {name:XL_FONT, size:9, italic:true, color:{argb:XL_SLATE}};
+  }
+
+  xlSetColWidths(ws, [3,20,12,10,10,12,12,10,10,10,12,12,12,12,12]);
+  return ws;
+}
+
+async function buildAsinSheet(wb){
+  const ws = wb.addWorksheet('ASIN Performance');
+  const isVC = STATE.settings.type === 'VC';
+  const rows = computeAsinParents(STATE.computed.asin).sort((a,b) => b.spend - a.spend);
+
+  xlTitle(ws, 'B2', 'ASIN Performance — Parent Rollup', 'P2');
+  xlSubtitle(ws, 'B3', `${rows.length} parent ASINs · sorted by Ad Spend (highest first)`, 'P3');
+
+  let r = 5;
+  const hasMs = STATE.computed.hasMerchantSpring;
+  const headers = ['Parent ASIN','# Children','Impr.','Clicks','CTR','Spend','Incl. SBV','Ad Sales','Orders','CVR','Revenue','Organic Sales %','Units','ACOS','TACOS','Session %'];
+  if (hasMs) headers.push('Rev YoY %','Units YoY %','YoY Status');
+  r = xlHeaderRow(ws, r, 2, headers);
+
+  const tt = {impressions:0,clicks:0,spend:0,sbvSpend:0,adSales:0,orders:0,revenue:0,unitsOrdered:0,sessions:0,sessionPct:0,msCurrRev:0,msPriorRev:0,msCurrUnits:0,msPriorUnits:0};
+  rows.forEach(a => {
+    const baseCols = [
+      {value:a.asin}, {value:a.childCount},
+      {value:a.impressions, fmt:XL_NUM_FMT}, {value:a.clicks, fmt:XL_NUM_FMT}, {value:a.ctr/100, fmt:XL_PCT_FMT},
+      {value:a.spend, fmt:xlCurFmt(true)}, {value:a.sbvSpend || null, fmt:a.sbvSpend?xlCurFmt(true):null},
+      {value:a.adSales, fmt:xlCurFmt(true)}, {value:a.orders, fmt:XL_NUM_FMT}, {value:a.cvr/100, fmt:XL_PCT_FMT},
+      {value:a.revenue, fmt:xlCurFmt(true)},
+      {value:a.organicSalesPct===null?'N/A':a.organicSalesPct/100, fmt:a.organicSalesPct===null?null:XL_PCT_FMT, cls:a.organicSalesPct===null?null:organicClass(a.organicSalesPct)},
+      {value:a.unitsOrdered, fmt:XL_NUM_FMT},
+      {value:a.acos/100, fmt:XL_PCT_FMT, cls:acosClass(a.acos)}, {value:a.tacos/100, fmt:XL_PCT_FMT, cls:tacosClass(a.tacos)},
+      {value:(isVC || a.sessionPct===null) ? (isVC?'N/A (VC)':'N/A') : a.sessionPct/100, fmt:(isVC||a.sessionPct===null)?null:XL_PCT_FMT}
+    ];
+    if (hasMs){
+      baseCols.push(
+        {value:a.msRevYoy===null||a.msRevYoy===undefined?'—':a.msRevYoy/100, fmt:(a.msRevYoy===null||a.msRevYoy===undefined)?null:XL_PCT_FMT, cls:(a.msRevYoy===null||a.msRevYoy===undefined)?null:(a.msRevYoy>=0?'ok-c':'crit-c')},
+        {value:a.msUnitsYoy===null||a.msUnitsYoy===undefined?'—':a.msUnitsYoy/100, fmt:(a.msUnitsYoy===null||a.msUnitsYoy===undefined)?null:XL_PCT_FMT, cls:(a.msUnitsYoy===null||a.msUnitsYoy===undefined)?null:(a.msUnitsYoy>=0?'ok-c':'crit-c')},
+        {value:a.msStatus||'—', cls:a.msStatusClass}
+      );
+    }
+    r = xlDataRow(ws, r, 2, baseCols);
+    tt.impressions+=a.impressions; tt.clicks+=a.clicks; tt.spend+=a.spend; tt.sbvSpend+=(a.sbvSpend||0);
+    tt.adSales+=a.adSales; tt.orders+=a.orders; tt.revenue+=a.revenue; tt.unitsOrdered+=a.unitsOrdered;
+    if (!isVC && a.sessions) tt.sessions += a.sessions;
+    tt.sessionPct += (a.sessionPct||0);
+    tt.msCurrRev+=(a.msCurrRev||0); tt.msPriorRev+=(a.msPriorRev||0); tt.msCurrUnits+=(a.msCurrUnits||0); tt.msPriorUnits+=(a.msPriorUnits||0);
+  });
+
+  const ttAcos = tt.spend/(tt.adSales||1), ttTacos = tt.spend/(tt.revenue||tt.adSales||1);
+  const ttOrganic = tt.revenue ? Math.max(tt.revenue-tt.adSales,0)/tt.revenue : null;
+  const totalCols = [
+    {value:'Total ('+rows.length+' parent ASINs)'}, {value:''},
+    {value:tt.impressions, fmt:XL_NUM_FMT}, {value:tt.clicks, fmt:XL_NUM_FMT}, {value:tt.clicks/(tt.impressions||1), fmt:XL_PCT_FMT},
+    {value:tt.spend, fmt:xlCurFmt(true)}, {value:tt.sbvSpend, fmt:xlCurFmt(true)},
+    {value:tt.adSales, fmt:xlCurFmt(true)}, {value:tt.orders, fmt:XL_NUM_FMT}, {value:tt.orders/(tt.clicks||1), fmt:XL_PCT_FMT},
+    {value:tt.revenue, fmt:xlCurFmt(true)}, {value:ttOrganic===null?'N/A':ttOrganic, fmt:ttOrganic===null?null:XL_PCT_FMT},
+    {value:tt.unitsOrdered, fmt:XL_NUM_FMT},
+    {value:ttAcos, fmt:XL_PCT_FMT}, {value:ttTacos, fmt:XL_PCT_FMT},
+    {value:isVC?'N/A (VC)':tt.sessionPct/100, fmt:isVC?null:XL_PCT_FMT}
+  ];
+  if (hasMs){
+    const ttRevYoy = tt.msPriorRev ? (tt.msCurrRev-tt.msPriorRev)/tt.msPriorRev : null;
+    const ttUnitsYoy = tt.msPriorUnits ? (tt.msCurrUnits-tt.msPriorUnits)/tt.msPriorUnits : null;
+    totalCols.push(
+      {value:ttRevYoy===null?'—':ttRevYoy, fmt:ttRevYoy===null?null:XL_PCT_FMT},
+      {value:ttUnitsYoy===null?'—':ttUnitsYoy, fmt:ttUnitsYoy===null?null:XL_PCT_FMT},
+      {value:''}
+    );
+  }
+  r = xlDataRow(ws, r, 2, totalCols, true);
+
+  const gap = tt.spend - STATE.computed.overview.spend;
+  if (Math.abs(gap) > 0.01){
+    r += 2;
+    const noteCell = ws.getCell('B'+r);
+    noteCell.value = `Note: Total Spend here may differ slightly from the Overview tab's account-level Ad Spend. ASIN-level figures come from the SP/SD Advertised Product Reports (+ SBV), while the Overview total comes from the bulk sheet — these Amazon exports can have slightly inconsistent date coverage per campaign. Small gaps (a few percent) are expected and not a calculation error.`;
+    noteCell.font = {name:XL_FONT, size:9, italic:true, color:{argb:XL_SLATE}};
+    ws.mergeCells('B'+r+':'+(hasMs?'S':'P')+r);
+    ws.getRow(r).height = 30;
+    ws.getCell('B'+r).alignment = {wrapText:true, vertical:'top'};
+  }
+
+  xlSetColWidths(ws, hasMs ? [3,14,14,10,9,9,11,11,11,9,11,13,9,9,9,12,11,11,12] : [3,14,14,10,9,9,11,11,11,9,11,13,9,9,9,12]);
+  ws.views = [{state:'frozen', ySplit:5}];
+  return ws;
+}
+
+async function buildKeywordSheet(wb){
+  const ws = wb.addWorksheet('Keyword-Target Health');
+  xlTitle(ws, 'B2', 'Keyword / Target Health', 'L2');
+  xlSubtitle(ws, 'B3', `${STATE.computed.keywordHealth.length} keywords/targets, split by ad type, sorted by Spend`, 'L3');
+
+  let r = 5;
+  for (const product of ['Sponsored Products','Sponsored Brands']){
+    const rows = STATE.computed.keywordHealth.filter(k => k.product === product).sort((a,b) => b.spend - a.spend);
+    xlSection(ws, 'B'+r, product + ' (' + rows.length + ')'); r += 2;
+    r = xlHeaderRow(ws, r, 2, ['Keyword / Target','Campaign','Match Type','Impr.','Clicks','CTR','Spend','Sales','Orders','CVR','ACOS','Status']);
+    const tt = {impressions:0,clicks:0,spend:0,sales:0,orders:0};
+    rows.forEach(k => {
+      r = xlDataRow(ws, r, 2, [
+        {value:k.keyword}, {value:k.campaign}, {value:k.matchType},
+        {value:k.impressions, fmt:XL_NUM_FMT}, {value:k.clicks, fmt:XL_NUM_FMT}, {value:k.ctr/100, fmt:XL_PCT_FMT},
+        {value:k.spend, fmt:xlCurFmt(true)}, {value:k.sales, fmt:xlCurFmt(true)}, {value:k.orders, fmt:XL_NUM_FMT},
+        {value:k.cvr/100, fmt:XL_PCT_FMT}, {value:k.acos/100, fmt:XL_PCT_FMT, cls:acosClass(k.acos)},
+        {value:k.label, cls:k.status}
+      ]);
+      tt.impressions+=k.impressions; tt.clicks+=k.clicks; tt.spend+=k.spend; tt.sales+=k.sales; tt.orders+=k.orders;
+    });
+    r = xlDataRow(ws, r, 2, [
+      {value:'Total ('+rows.length+')'}, {value:''}, {value:''},
+      {value:tt.impressions, fmt:XL_NUM_FMT}, {value:tt.clicks, fmt:XL_NUM_FMT}, {value:tt.clicks/(tt.impressions||1), fmt:XL_PCT_FMT},
+      {value:tt.spend, fmt:xlCurFmt(true)}, {value:tt.sales, fmt:xlCurFmt(true)}, {value:tt.orders, fmt:XL_NUM_FMT},
+      {value:tt.orders/(tt.clicks||1), fmt:XL_PCT_FMT}, {value:tt.spend/(tt.sales||1), fmt:XL_PCT_FMT}, {value:''}
+    ], true);
+    r += 2;
+  }
+
+  xlSetColWidths(ws, [3,24,26,14,10,9,9,10,10,9,9,9,14]);
+  ws.views = [{state:'frozen', ySplit:5}];
+  return ws;
+}
+
+async function buildSearchTermSheet(wb){
+  const ws = wb.addWorksheet('Search Term Health');
+  xlTitle(ws, 'B2', 'Search Term Health', 'L2');
+  xlSubtitle(ws, 'B3', `${STATE.computed.searchTermHealth.length} search terms, split by ad type, sorted by Spend`, 'L3');
+
+  let r = 5;
+  for (const product of ['Sponsored Products','Sponsored Brands']){
+    const rows = STATE.computed.searchTermHealth.filter(k => k.product === product).sort((a,b) => b.spend - a.spend);
+    xlSection(ws, 'B'+r, product + ' (' + rows.length + ')'); r += 2;
+    r = xlHeaderRow(ws, r, 2, ['Search Term','Campaign','Impr.','Clicks','CTR','Spend','Sales','Orders','CVR','ACOS','Flag']);
+    const tt = {impressions:0,clicks:0,spend:0,sales:0,orders:0};
+    rows.forEach(k => {
+      r = xlDataRow(ws, r, 2, [
+        {value:k.term}, {value:k.campaign},
+        {value:k.impressions, fmt:XL_NUM_FMT}, {value:k.clicks, fmt:XL_NUM_FMT}, {value:k.ctr/100, fmt:XL_PCT_FMT},
+        {value:k.spend, fmt:xlCurFmt(true)}, {value:k.sales, fmt:xlCurFmt(true)}, {value:k.orders, fmt:XL_NUM_FMT},
+        {value:k.cvr/100, fmt:XL_PCT_FMT}, {value:k.acos/100, fmt:XL_PCT_FMT, cls:acosClass(k.acos)},
+        {value:k.flag, cls:k.flagClass}
+      ]);
+      tt.impressions+=k.impressions; tt.clicks+=k.clicks; tt.spend+=k.spend; tt.sales+=k.sales; tt.orders+=k.orders;
+    });
+    r = xlDataRow(ws, r, 2, [
+      {value:'Total ('+rows.length+')'}, {value:''},
+      {value:tt.impressions, fmt:XL_NUM_FMT}, {value:tt.clicks, fmt:XL_NUM_FMT}, {value:tt.clicks/(tt.impressions||1), fmt:XL_PCT_FMT},
+      {value:tt.spend, fmt:xlCurFmt(true)}, {value:tt.sales, fmt:xlCurFmt(true)}, {value:tt.orders, fmt:XL_NUM_FMT},
+      {value:tt.orders/(tt.clicks||1), fmt:XL_PCT_FMT}, {value:tt.spend/(tt.sales||1), fmt:XL_PCT_FMT}, {value:''}
+    ], true);
+    r += 2;
+  }
+
+  xlSetColWidths(ws, [3,30,26,10,9,9,9,10,9,9,9,14]);
+  ws.views = [{state:'frozen', ySplit:5}];
+  return ws;
+}
+
+async function buildPlacementSheet(wb){
+  const ws = wb.addWorksheet('Placement Performance');
+  const hasAny = STATE.computed.hasPlacementSP || STATE.computed.hasPlacementSB;
+  xlTitle(ws, 'B2', 'Placement Performance', 'K2');
+
+  if (!hasAny){
+    xlSubtitle(ws, 'B3', 'Placement Reports were not uploaded for this period.', 'K3');
+    return ws;
+  }
+  xlSubtitle(ws, 'B3', 'One row per campaign, grouped with its placement-level breakdown below (use the +/- row group controls to expand)', 'K3');
+
+  let r = 5;
+  const cols = 10;
+  for (const [adType, label, hasKey] of [['SP','Sponsored Products','hasPlacementSP'], ['SB','Sponsored Brands','hasPlacementSB']]){
+    if (!STATE.computed[hasKey]) continue;
+    const summaryRows = STATE.computed.campaignPlacementSummary.filter(c => c.adType === adType).sort((a,b) => b.spend - a.spend);
+    xlSection(ws, 'B'+r, label + ' (' + summaryRows.length + ' campaigns)'); r += 2;
+    r = xlHeaderRow(ws, r, 2, ['Campaign','Impr.','Clicks','CTR','Spend','Sales','Orders','CVR','ACOS','Status']);
+    summaryRows.forEach(g => {
+      r = xlDataRow(ws, r, 2, [
+        {value:g.campaign, bold:true}, {value:g.impressions, fmt:XL_NUM_FMT}, {value:g.clicks, fmt:XL_NUM_FMT}, {value:g.ctr/100, fmt:XL_PCT_FMT},
+        {value:g.spend, fmt:xlCurFmt(true)}, {value:g.sales, fmt:xlCurFmt(true)}, {value:g.orders, fmt:XL_NUM_FMT},
+        {value:g.cvr/100, fmt:XL_PCT_FMT}, {value:g.acos/100, fmt:XL_PCT_FMT, cls:acosClass(g.acos)}, {value:g.label, cls:g.status}
+      ]);
+      const placementRows = STATE.computed.campaignPlacement.filter(p => p.adType === adType && p.campaign === g.campaign).sort((a,b) => b.spend - a.spend);
+      placementRows.forEach(p => {
+        const detailRow = r;
+        r = xlDataRow(ws, r, 3, [
+          {value:'  ↳ ' + p.placement}, {value:p.impressions, fmt:XL_NUM_FMT}, {value:p.clicks, fmt:XL_NUM_FMT}, {value:p.ctr/100, fmt:XL_PCT_FMT},
+          {value:p.spend, fmt:xlCurFmt(true)}, {value:p.sales, fmt:xlCurFmt(true)}, {value:p.orders, fmt:XL_NUM_FMT},
+          {value:p.cvr/100, fmt:XL_PCT_FMT}, {value:p.acos/100, fmt:XL_PCT_FMT, cls:acosClass(p.acos)}, {value:p.flag||'', cls:p.flagClass}
+        ]);
+        ws.getRow(detailRow).font = {name:XL_FONT, size:9, italic:true};
+        ws.getRow(detailRow).outlineLevel = 1;
+      });
+    });
+    r += 2;
+  }
+
+  ws.properties.outlineLevelRow = 1;
+  xlSetColWidths(ws, [3,26,10,9,9,9,10,9,9,9,14]);
+  ws.views = [{state:'frozen', ySplit:5}];
+  return ws;
+}
+
+async function exportExcel(){
+  if (!STATE.computed){ alert('Upload all mandatory reports first.'); return; }
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'PPC Audit Tool';
+  await buildOverviewSheet(wb);
+  await buildAsinSheet(wb);
+  await buildKeywordSheet(wb);
+  await buildSearchTermSheet(wb);
+  await buildPlacementSheet(wb);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (STATE.settings.name || 'ppc-audit') + '-dashboard.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PDF EXPORT (jsPDF + autoTable) — a purpose-built client report, not a
+// screenshot of the interactive dashboard. Pure performance data only: no
+// auto-generated findings/recommendations, since those need human judgment
+// (stock status, campaign age, etc.) the tool has no way to know.
+// ─────────────────────────────────────────────────────────────────────────
+const PDF_NAVY = [30, 58, 95];
+const PDF_SLATE = [107, 114, 128];
+const PDF_LIGHT = [243, 244, 246];
+const PDF_WHITE = [255, 255, 255];
+const PDF_GOOD = {text:[21,128,61], fill:[220,252,231]};
+const PDF_WARN = {text:[146,64,14], fill:[254,243,199]};
+const PDF_CRIT = {text:[185,28,28], fill:[254,226,226]};
+const PDF_TOPN = 20; // ASIN Performance section: top N by spend
+
+function pdfClassColor(cssClass){
+  if (cssClass === 'ok-c') return PDF_GOOD;
+  if (cssClass === 'warn-c') return PDF_WARN;
+  if (cssClass === 'crit-c') return PDF_CRIT;
+  return null;
+}
+
+function pdfCur(v){ return STATE.settings.currency + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function pdfPct(v){ return (v===null||v===undefined) ? 'N/A' : v.toFixed(2) + '%'; }
+function pdfNum(v){ return Number(v).toLocaleString('en-US'); }
+
+function pdfSectionTitle(doc, text, y){
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...PDF_NAVY);
+  doc.text(text, 40, y);
+  doc.setDrawColor(...PDF_LIGHT); doc.setLineWidth(1);
+  doc.line(40, y+4, doc.internal.pageSize.getWidth()-40, y+4);
+  return y + 24;
+}
+
+function pdfKpiGrid(doc, startY, kpis){
+  // kpis: [{label, value, color: PDF_GOOD/WARN/CRIT/null}]
+  const cols = 3, boxW = 165, boxH = 46, gapX = 10, gapY = 10, startX = 40;
+  kpis.forEach((k, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = startX + col * (boxW + gapX);
+    const y = startY + row * (boxH + gapY);
+    doc.setFillColor(...(k.color ? k.color.fill : PDF_LIGHT));
+    doc.roundedRect(x, y, boxW, boxH, 3, 3, 'F');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...PDF_SLATE);
+    doc.text(k.label.toUpperCase(), x+10, y+16);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.setTextColor(...(k.color ? k.color.text : PDF_NAVY));
+    doc.text(String(k.value), x+10, y+34);
+  });
+  const rows = Math.ceil(kpis.length / cols);
+  return startY + rows * (boxH + gapY);
+}
+
+function pdfAutoTable(doc, startY, head, body, opts){
+  doc.autoTable(Object.assign({
+    startY, head:[head], body,
+    theme: 'plain',
+    styles: {font:'helvetica', fontSize:8, cellPadding:5, textColor:PDF_NAVY, lineColor:PDF_LIGHT, lineWidth:0.5},
+    headStyles: {fillColor:PDF_NAVY, textColor:PDF_WHITE, fontStyle:'bold', fontSize:8},
+    alternateRowStyles: {fillColor:[249,250,251]},
+    margin: {left:40, right:40}
+  }, opts || {}));
+  return doc.lastAutoTable.finalY + 20;
+}
+
+function pdfWarningBanner(doc, y, lines){
+  const pageW = doc.internal.pageSize.getWidth();
+  const boxW = pageW - 80;
+  const lineH = 12;
+  const padY = 10, padX = 10;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  const wrapped = [];
+  lines.forEach(line => { doc.splitTextToSize(line, boxW - padX*2).forEach(l => wrapped.push(l)); });
+  const boxH = padY*2 + wrapped.length*lineH;
+  doc.setFillColor(254, 243, 199); // amber-100
+  doc.setDrawColor(251, 191, 36); // amber-400
+  doc.setLineWidth(1);
+  doc.roundedRect(40, y, boxW, boxH, 3, 3, 'FD');
+  doc.setTextColor(146, 64, 14); // amber-800
+  wrapped.forEach((line, i) => { doc.text(line, 40+padX, y + padY + 9 + i*lineH); });
+  return y + boxH + 16;
+}
+
+// Exports just the ASIN drill-down modal's campaign breakdown as its own small,
+// focused Excel file — reuses the same styling helpers as the main exports so it
+// looks consistent, without needing the full 5-tab workbook for a quick one-ASIN check.
+async function exportAsinDrilldownExcel(asin){
+  const rows = sortRows(computeAsinCampaignBreakdown(asin), STATE.modalSort);
+  if (!rows.length) return;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'PPC Audit Tool';
+  const ws = wb.addWorksheet('Campaigns');
+  xlTitle(ws, 'B2', `Campaigns advertising ${asin}`, 'K2');
+  xlSubtitle(ws, 'B3', 'Source: SP and SD Advertised Product Reports, plus SBV campaigns attributed via the ASIN in the campaign name. Classic SB headline/collection ads aren\'t included — those promote multiple products at once.', 'K3');
+  ws.getRow(3).height = 26;
+  ws.getCell('B3').alignment = {wrapText:true, vertical:'top'};
+
+  let r = 6;
+  r = xlHeaderRow(ws, r, 2, ['Ad Type','Campaign','Impr.','Clicks','CTR','Spend','Ad Sales','Orders','CVR','ACOS']);
+  const tt = {impressions:0, clicks:0, spend:0, adSales:0, orders:0};
+  rows.forEach(row => {
+    r = xlDataRow(ws, r, 2, [
+      {value:row.adType}, {value:row.campaign},
+      {value:row.impressions, fmt:XL_NUM_FMT}, {value:row.clicks, fmt:XL_NUM_FMT}, {value:row.ctr/100, fmt:XL_PCT_FMT},
+      {value:row.spend, fmt:xlCurFmt(true)}, {value:row.adSales, fmt:xlCurFmt(true)}, {value:row.orders, fmt:XL_NUM_FMT},
+      {value:row.cvr/100, fmt:XL_PCT_FMT}, {value:row.acos/100, fmt:XL_PCT_FMT, cls:acosClass(row.acos)}
+    ]);
+    tt.impressions+=row.impressions; tt.clicks+=row.clicks; tt.spend+=row.spend; tt.adSales+=row.adSales; tt.orders+=row.orders;
+  });
+  const ttAcos = pct(tt.spend, tt.adSales);
+  r = xlDataRow(ws, r, 2, [
+    {value:'Total ('+rows.length+' campaigns)'}, {value:''},
+    {value:tt.impressions, fmt:XL_NUM_FMT}, {value:tt.clicks, fmt:XL_NUM_FMT}, {value:pct(tt.clicks,tt.impressions)/100, fmt:XL_PCT_FMT},
+    {value:tt.spend, fmt:xlCurFmt(true)}, {value:tt.adSales, fmt:xlCurFmt(true)}, {value:tt.orders, fmt:XL_NUM_FMT},
+    {value:pct(tt.orders,tt.clicks)/100, fmt:XL_PCT_FMT}, {value:ttAcos/100, fmt:XL_PCT_FMT}
+  ], true);
+
+  xlSetColWidths(ws, [3,10,42,10,9,9,11,11,9,9,9]);
+  ws.views = [{state:'frozen', ySplit:6}];
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = asin + '-campaigns.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportPDF(){
+  if (!STATE.computed){ alert('Upload all mandatory reports first.'); return; }
+  const { jsPDF } = jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const o = STATE.computed.overview;
+  const isVC = STATE.settings.type === 'VC';
+  const acosGoal = STATE.settings.acosGoal, tacosGoal = STATE.settings.tacosGoal;
+
+  // ── Cover page ──────────────────────────────────────────────────────
+  doc.setFillColor(...PDF_NAVY);
+  doc.rect(0, 0, pageW, 240, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(...PDF_WHITE);
+  doc.text('PPC Performance Report', 40, 110);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(13);
+  doc.text(`${STATE.settings.name || 'Account'} — ${STATE.settings.market || ''} Marketplace`, 40, 140);
+  doc.setFontSize(10);
+  doc.text(`${STATE.settings.type === 'VC' ? 'Vendor Central' : 'Seller Central'} · ${STATE.settings.currency} · Prepared ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`, 40, 160);
+
+  let y = 290;
+  y = pdfSectionTitle(doc, 'Executive Summary', y);
+  const kpis = [
+    {label:'Revenue', value:pdfCur(o.revenue)},
+    {label:'Ad Spend', value:pdfCur(o.spend)},
+    {label:'Ad Sales', value:pdfCur(o.adSales)},
+    {label:'ACOS (Goal: '+acosGoal+'%)', value:pdfPct(o.acos), color: pdfClassColor(acosClass(o.acos))},
+    {label:'TACOS (Goal: '+tacosGoal+'%)', value:pdfPct(o.tacos), color: pdfClassColor(tacosClass(o.tacos))},
+    {label:'ROAS', value:o.roas.toFixed(2)+'x'},
+    {label:'Units Ordered', value:pdfNum(o.unitsOrdered)},
+    {label:'Ad Orders', value:pdfNum(o.adOrders)},
+    {label:'Organic Sales %', value:pdfPct(o.organicSalesPct)}
+  ];
+  y = pdfKpiGrid(doc, y, kpis);
+
+  // ── Data Quality Notice ──────────────────────────────────────────────
+  // Same cross-source check used on-screen: when MerchantSpring is uploaded
+  // alongside the retail report, their revenue figures for the same period
+  // should roughly agree. This is the report that actually leaves the
+  // building, so it's the most important place to catch a problem before
+  // a client sees it, not the least.
+  const ms = STATE.computed.msOverview;
+  const warningLines = [];
+  if (ms && ms.currRev > 0 && o.revenue > 0){
+    const diff = Math.abs(o.revenue - ms.currRev) / Math.max(o.revenue, ms.currRev);
+    if (diff > 0.20){
+      warningLines.push(`Account-level Revenue disagrees by more than 20% between the retail report (${pdfCur(o.revenue)}) and MerchantSpring (${pdfCur(ms.currRev)}) for the same period.`);
+    }
+  }
+  const mismatchedAsins = STATE.computed.asin.filter(a => a.revenueMismatch);
+  if (mismatchedAsins.length){
+    warningLines.push(`${mismatchedAsins.length} ASIN${mismatchedAsins.length>1?'s':''} show revenue disagreeing by more than 20% between the retail report and MerchantSpring: ${mismatchedAsins.slice(0,8).map(a=>a.asin).join(', ')}${mismatchedAsins.length>8?', +'+(mismatchedAsins.length-8)+' more':''}.`);
+  }
+  if (warningLines.length){
+    warningLines.unshift('DATA QUALITY NOTICE — these are two independent sources that should roughly agree. Verify against source files before relying on the figures below:');
+    y = pdfWarningBanner(doc, y, warningLines);
+  }
+
+  // ── Campaign Type ────────────────────────────────────────────────────
+  doc.addPage();
+  y = 50;
+  y = pdfSectionTitle(doc, 'Performance by Campaign Type', y);
+  const ct = STATE.computed.campaignType;
+  const ctHead = ['Campaign Type','Impr.','Clicks','Spend','Sales','Orders','CTR','CVR','ACOS'];
+  const ctBody = [...ct.rows, ct.total].map(g => [g.product, pdfNum(g.impressions), pdfNum(g.clicks), pdfCur(g.spend), pdfCur(g.sales), pdfNum(g.orders), pdfPct(g.ctr), pdfPct(g.cvr), pdfPct(g.acos)]);
+  y = pdfAutoTable(doc, y, ctHead, ctBody, {
+    columnStyles: {0:{fontStyle:'bold'}},
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 8 && data.row.index < ct.rows.length){
+        const col = pdfClassColor(acosClass(ct.rows[data.row.index].acos));
+        if (col){ data.cell.styles.fillColor = col.fill; data.cell.styles.textColor = col.text; data.cell.styles.fontStyle = 'bold'; }
+      }
+      if (data.section === 'body' && data.row.index === ct.rows.length){ data.cell.styles.fontStyle = 'bold'; data.cell.styles.fillColor = PDF_LIGHT; }
+    }
+  });
+
+  // ── Match Type SP / SB ───────────────────────────────────────────────
+  for (const [label, key] of [['Sponsored Products','matchTypeSP'], ['Sponsored Brands','matchTypeSB']]){
+    const mt = STATE.computed[key];
+    if (!mt.rows.length) continue;
+    if (y > 650){ doc.addPage(); y = 50; }
+    y = pdfSectionTitle(doc, 'Performance by Match Type — ' + label, y);
+    const mHead = ['Match Type','Impr.','Clicks','Spend','Sales','Orders','CTR','CVR','ACOS'];
+    const mBody = [...mt.rows, mt.total].map(g => [g.matchType, pdfNum(g.impressions), pdfNum(g.clicks), pdfCur(g.spend), pdfCur(g.sales), pdfNum(g.orders), pdfPct(g.ctr), pdfPct(g.cvr), pdfPct(g.acos)]);
+    y = pdfAutoTable(doc, y, mHead, mBody, {
+      columnStyles: {0:{fontStyle:'bold'}},
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.row.index === mt.rows.length){ data.cell.styles.fontStyle = 'bold'; data.cell.styles.fillColor = PDF_LIGHT; }
+      }
+    });
+  }
+
+  // ── ASIN Performance (Parent Rollup, top N by spend) ─────────────────
+  doc.addPage('a4', 'landscape');
+  y = 50;
+  const topAsins = computeAsinParents(STATE.computed.asin).sort((a,b) => b.spend - a.spend).slice(0, PDF_TOPN);
+  y = pdfSectionTitle(doc, `ASIN Performance (Parent Rollup) — Top ${topAsins.length} by Ad Spend`, y);
+  const aHead = ['Parent ASIN','# Children','Spend','Ad Sales','Orders','Revenue','Units','ACOS','TACOS'];
+  const aBody = topAsins.map(a => [a.asin, pdfNum(a.childCount), pdfCur(a.spend), pdfCur(a.adSales), pdfNum(a.orders), pdfCur(a.revenue), pdfNum(a.unitsOrdered), pdfPct(a.acos), pdfPct(a.tacos)]);
+  pdfAutoTable(doc, y, aHead, aBody, {
+    didParseCell: (data) => {
+      if (data.section !== 'body') return;
+      const a = topAsins[data.row.index];
+      if (data.column.index === 7){ const col = pdfClassColor(acosClass(a.acos)); if (col){ data.cell.styles.fillColor = col.fill; data.cell.styles.textColor = col.text; data.cell.styles.fontStyle='bold'; } }
+      if (data.column.index === 8){ const col = pdfClassColor(tacosClass(a.tacos)); if (col){ data.cell.styles.fillColor = col.fill; data.cell.styles.textColor = col.text; data.cell.styles.fontStyle='bold'; } }
+    }
+  });
+
+  // ── Footer on every page ─────────────────────────────────────────────
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...PDF_SLATE);
+    doc.text(`${STATE.settings.name || 'PPC Performance Report'} — Confidential`, 40, h-25);
+    doc.text(`Page ${i} of ${pageCount}`, w-40, h-25, {align:'right'});
+  }
+
+  doc.save((STATE.settings.name || 'ppc-audit') + '-report.pdf');
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────
+function populateSettingsForm(){
+  const s = STATE.settings;
+  document.getElementById('s-name').value = s.name || '';
+  document.getElementById('s-type').value = s.type || 'SC';
+  document.getElementById('s-market').value = s.market || '';
+  document.getElementById('s-budgetperiod').value = s.budgetPeriod || 'weekly';
+  document.getElementById('s-budget').value = s.budget || '';
+  document.getElementById('s-acosgoal').value = s.acosGoal || 20;
+  document.getElementById('s-tacosgoal').value = s.tacosGoal || 12;
+}
+
+function init(){
+  renderUploadGrid();
+  try{
+    const store = document.getElementById('data-store');
+    const raw = store ? store.textContent.trim() : '';
+    if (raw && raw !== '{}'){
+      const snapshot = JSON.parse(raw);
+      if (snapshot.settings) STATE.settings = {...STATE.settings, ...snapshot.settings};
+      if (snapshot.computed) STATE.computed = snapshot.computed;
+      populateSettingsForm();
+      if (STATE.computed){
+        document.getElementById('panel-uploads').classList.add('collapsed');
+        document.getElementById('main-sub').textContent = 'Showing data loaded from a previously exported file — upload files below to refresh with new data.';
+        document.querySelector('#panel-uploads h2').innerHTML = '<span class="car">▾</span> Reports (data loaded from saved file — upload below to refresh)';
+      }
+    }
+  } catch(e){ console.error('Could not restore saved dashboard data:', e); }
+  updateAnalyzeButtonState();
+  updateViewMode();
+  updateHeader();
+  render();
+}
+init();
+</script>
+</body></html>
